@@ -3,6 +3,7 @@
 //  控制台菜单实现（v1.3 - 对齐运行效果图格式）
 // =============================================================
 #include "menu.h"
+#include <cctype>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
@@ -29,7 +30,22 @@ int Menu::readInt(const std::string &prompt, int defaultVal) {
   std::cout << prompt;
   std::string s;
   std::getline(std::cin, s);
+  // 去掉首尾 ASCII 空白
+  size_t b = 0, e = s.size();
+  auto isSpace = [](unsigned char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+  };
+  while (b < e && isSpace((unsigned char)s[b])) ++b;
+  while (e > b && isSpace((unsigned char)s[e - 1])) --e;
+  s = s.substr(b, e - b);
   if (s.empty()) return defaultVal;
+  // 严格校验: 只允许 [可选 +/-] + 全数字, 拒绝浮点数 / 字母 / 符号混杂
+  size_t i = 0;
+  if (s[0] == '+' || s[0] == '-') ++i;
+  if (i == s.size()) return defaultVal;   // 仅符号无数字
+  for (; i < s.size(); ++i) {
+    if (!std::isdigit((unsigned char)s[i])) return defaultVal;
+  }
   try { return std::stoi(s); } catch (...) { return defaultVal; }
 }
 std::string Menu::readLine(const std::string &prompt) {
