@@ -150,11 +150,11 @@ bool StationManager::loadInitFromCSV(const std::string &csvPath) {
 }
 
 // ---------- 批量更新状态 ----------
-bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
+int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
     std::cerr << "[Station] 无法打开批量更新文件: " << csvPath << std::endl;
-    return false;
+    return -1;
   }
   std::string line;
   bool first = true;
@@ -166,8 +166,11 @@ bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
     if (first) {
       first = false;
       if (!fields.empty() &&
-          (fields[0] == "name" || fields[0] == "id"))
+          (fields[0] == "name" || fields[0] == "id"
+           || fields[0] == "站点名称" || fields[0] == "站点ID")) {
+        // 跳过中英文表头
         continue;
+      }
     }
     if (fields.size() == 2) {
       int id = -1;
@@ -211,7 +214,7 @@ bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   fin.close();
   std::cout << "[批量更新] 成功 " << success << " 条，失败 " << fail
             << " 条。\n";
-  return fail == 0;
+  return success;
 }
 
 // ---------- 模糊搜索 ----------
@@ -457,4 +460,89 @@ bool StationManager::removeStation(const std::string& name, const std::string& l
     }
     rebuildStationsIndex(stations_, id2idx_, name2idx_);
     return true;
+}
+
+// ============================================================
+//    运营管理扩展：换乘站整体关闭
+// ============================================================
+bool StationManager::isTransferStation(const std::string &name) const {
+  auto it = name2idx_.find(name);
+  if (it == name2idx_.end()) return false;
+  return it->second.size() > 1;
+}
+
+int StationManager::closeTransferStation(const std::string &name) {
+  auto it = name2idx_.find(name);
+  if (it == name2idx_.end()) {
+    std::cout << "[换乘站关闭] 未找到站点 \"" << name << "\"。\n";
+    return 0;
+  }
+  if (it->second.size() <= 1) {
+    std::cout << "[换乘站关闭] \"" << name << "\" 不是换乘站，仅有 1 条线路。\n";
+    return 0;
+  }
+  int cnt = 0;
+  for (size_t idx : it->second) {
+    stations_[idx].status = "关闭";
+    ++cnt;
+  }
+  std::cout << "[换乘站关闭] 已关闭 \"" << name << "\" 的所有 "
+            << cnt << " 个站点。\n";
+  return cnt;
+}
+
+// ============================================================
+//    运营管理扩展：线路停运 / 恢复
+// ============================================================
+int StationManager::closeLineStations(const std::string &line) {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.line == line && st.status == "开启") {
+      st.status = "关闭";
+      ++cnt;
+    }
+  }
+  std::cout << "[线路停运] \"" << line << "\" 已停运，关闭 "
+            << cnt << " 个站点。\n";
+  return cnt;
+}
+
+int StationManager::openLineStations(const std::string &line) {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.line == line && st.status == "关闭") {
+      st.status = "开启";
+      ++cnt;
+    }
+  }
+  std::cout << "[线路恢复] \"" << line << "\" 已恢复，开启 "
+            << cnt << " 个站点。\n";
+  return cnt;
+}
+
+// ============================================================
+//    运营管理扩展：全网停运 / 恢复
+// ============================================================
+int StationManager::closeAllStations() {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.status == "开启") {
+      st.status = "关闭";
+      ++cnt;
+    }
+  }
+  std::cout << "[全网停运] 已关闭全部 " << cnt << " 个站点。\n";
+  return cnt;
+}
+
+int StationManager::openAllStations() {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.status == "关闭") {
+      st.status = "开启";
+      ++cnt;
+    }
+  }
+  std::cout << "[全网恢复] 已开启全部 " << cnt << " 个站点。\n";
+  return cnt;
 }

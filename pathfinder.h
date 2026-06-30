@@ -21,6 +21,8 @@ struct Path {
   std::vector<int> nodes;
   // 段线路：lines[i] 表示从 nodes[i] -> nodes[i+1] 所乘坐的线路
   std::vector<std::string> lines;
+  // 段方向：directions[i] 对应 lines[i] 的 4 号线内/外圈信息（其余为空）
+  std::vector<std::string> directions;
   // 统计
   int totalTime = 0;       // 总耗时（分钟）
   int transferCnt = 0;     // 换乘次数
@@ -61,6 +63,16 @@ public:
     std::string level;                      // "高/中/低"
   };
   ImpactInfo analyzeImpact(const std::string &name, const std::string &line);
+
+  // 6) 网络连通性分析：使用 DFS 统计连通分量
+  struct NetworkInfo {
+    int componentCount;                     // 连通分量数
+    int totalOpenStations;                  // 当前开放站点数
+    int totalClosedStations;                // 当前关闭站点数
+    std::vector<std::vector<int>> components; // 各连通分量的站点 id 列表
+    bool isConnected;                       // 全网是否连通（componentCount == 1）
+  };
+  NetworkInfo analyzeNetworkConnectivity();
 
   // 由 Path 中 nodes/lines 重新计算 totalTime / transferCnt / stopCnt
   // 暴露为 public 供 K 短路辅助函数使用

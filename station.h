@@ -34,7 +34,8 @@ public:
   bool loadInitFromCSV(const std::string &csvPath);
   // 从 update_station_status.csv 批量更新
   // 支持两种格式：id,status 或 name,line,status
-  bool batchUpdateFromCSV(const std::string &csvPath);
+  // 返回成功更新的站点数量（-1 表示文件打开失败）
+  int batchUpdateFromCSV(const std::string &csvPath);
 
   // ---- 查询类 ----
   // 模糊搜索：返回所有 name 包含关键字的站点
@@ -62,7 +63,7 @@ public:
   // ---- §3.3 路径状态信息管理与可视化模块 ----
   // 规范名: updateStationStatus / saveStationStatus / showClosedStations / showStationsByLine
   // （与上方方法语义一致，仅为对齐规范命名）
-  bool   updateStationStatus(const std::string &csvPath) { return batchUpdateFromCSV(csvPath); }
+  bool   updateStationStatus(const std::string &csvPath) { return batchUpdateFromCSV(csvPath) >= 0; }
   bool   saveStationStatus  (const std::string &csvPath) const { return saveCurrentToCSV(csvPath); }
   void   showClosedStations(std::ostream &os = std::cout) const;
   void   showStationsByLine(const std::string &line, std::ostream &os = std::cout) const;
@@ -75,6 +76,18 @@ public:
   bool   removeStation(const std::string &name, const std::string &line);
   // 当前最大 id（用于自动分配新 id）
   int    nextStationId() const;
+
+  // ---- 运营管理扩展 ----
+  // 换乘站整体关闭：关闭所有同名站点（跨线路），返回关闭数量
+  int closeTransferStation(const std::string &name);
+  // 线路停运/恢复：关闭或开启指定线路上的所有站点
+  int closeLineStations(const std::string &line);
+  int openLineStations(const std::string &line);
+  // 全网停运/恢复
+  int closeAllStations();
+  int openAllStations();
+  // 判断站点是否为换乘站（同名出现在多条线路）
+  bool isTransferStation(const std::string &name) const;
 
   // ---- 辅助 ----
   // 解析一行 CSV（处理引号、逗号），返回字段数组

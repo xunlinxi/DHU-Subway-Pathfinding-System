@@ -7,6 +7,7 @@
 #include <climits>
 #include <map>
 #include <sstream>
+#include <stack>
 
 namespace {
 bool isTransferEdgeLine(const std::string &line) { return line == "换乘"; }
@@ -45,6 +46,12 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     const Station *s = sm.findById(id);
     return s ? s->line : std::string("?");
   };
+  // 获取线路方向标签（仅4号线有）
+  auto dirOf = [&](int edgeIdx) -> std::string {
+    if (edgeIdx < 0 || edgeIdx >= (int)directions.size())
+      return "";
+    return directions[edgeIdx];
+  };
 
   std::vector<std::string> nodeNames;
   std::vector<std::string> nodeLines;
@@ -56,6 +63,7 @@ std::string Path::toPrettyString(const StationManager &sm) const {
   }
 
   std::string firstLine = nodeLines[0];
+  std::string firstDir = dirOf(0);
 
   if (nodes.size() == 1) {
     std::ostringstream oss;
@@ -82,13 +90,21 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     }
   };
 
-  oss << nodeNames[0] << "[" << firstLine << "]：\n";
+  oss << nodeNames[0] << "[" << firstLine;
+  if (!firstDir.empty())
+    oss << " (" << firstDir << ")";
+  oss << "]：\n";
+
   int segmentStart = 0;
   for (int i = 1; i < (int)nodes.size(); ++i) {
     if (nodeLines[i] == nodeLines[i - 1])
       continue;
     appendSegment(segmentStart, i - 1);
-    oss << "\n站内换乘至[" << nodeLines[i] << "]\n";
+    std::string d = dirOf(i);
+    oss << "\n站内换乘至[" << nodeLines[i];
+    if (!d.empty())
+      oss << " (" << d << ")";
+    oss << "]\n";
     segmentStart = i;
   }
   appendSegment(segmentStart, (int)nodes.size() - 1);
@@ -221,6 +237,16 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
         p.lines.push_back(revLines[sz - 2 - i]);
       // 统计
       PathFinder::finalizeStats(p, graph);
+      // 填充方向信息
+      for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
+        int u = p.nodes[i], v = p.nodes[i + 1];
+        for (const auto &e : adj[u]) {
+          if (e.to == v && e.line == p.lines[i]) {
+            p.directions.push_back(e.direction);
+            break;
+          }
+        }
+      }
       // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
       // 状态更稳）
       if (goal == OptGoal::TIME) {
@@ -363,6 +389,11 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
         total.nodes.push_back(spur.nodes[j]);
       for (int j = 0; j < (int)spur.lines.size(); ++j)
         total.lines.push_back(spur.lines[j]);
+      // 方向信息
+      for (int j = 0; j < i && j < (int)prev.directions.size(); ++j)
+        total.directions.push_back(prev.directions[j]);
+      for (int j = 0; j < (int)spur.directions.size(); ++j)
+        total.directions.push_back(spur.directions[j]);
       PathFinder::finalizeStats(total, pf.graph());
       total.valid = true;
 
@@ -462,4 +493,83 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
   else
     info.level = "低";
   return info;
+}
+
+// ============================================================
+//                  4) 网络连通性分析 (DFS)
+// ============================================================
+PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
+  NetworkInfo ninfo;
+  ninfo.totalOpenStations = 0;
+  ninfo.totalClosedStations = 0;
+
+  // 收集所有开放站点的 id
+  std::unordered_set<int> openIds;
+  for (const auto &st : sm_.allStations()) {
+    if (st.status == "开启") {
+      openIds.insert(st.id);
+      ++ninfo.totalOpenStations;
+    } else {
+      ++ninfo.totalClosedStations;
+    }
+  }
+
+  if (openIds.empty()) {
+    ninfo.componentCount = 0;
+    ninfo.isConnected = false;
+    return ninfo;
+  }
+
+  // DFS 遍历连通分量
+  std::unordered_set<int> visited;
+  const auto &adj = graph_.adjList();
+
+  std::function<void(int, std::vector<int> &)> dfs =
+      [&](int cur, std::vector<int> &comp) {
+        visited.insert(cur);
+        comp.push_back(cur);
+        if (cur >= (int)adj.size()) return;
+        for (const auto &e : adj[cur]) {
+          if (sm_.isClosed(e.to)) continue;        // 跳过关闭站点
+          if (e.line == "换乘") continue;           // 换乘边不用于连通性（由同线边传递）
+          if (visited.count(e.to)) continue;
+          dfs(e.to, comp);
+        }
+      };
+
+  // 对开放站点也遍历换乘邻居（保证跨线路连通性也被计算）
+  auto dfsFull = [&](int cur, std::vector<int> &comp) {
+    std::stack<int> stk;
+    stk.push(cur);
+    while (!stk.empty()) {
+      int u = stk.top();
+      stk.pop();
+      if (visited.count(u)) continue;
+      visited.insert(u);
+      comp.push_back(u);
+      if (u >= (int)adj.size()) continue;
+      for (const auto &e : adj[u]) {
+        if (sm_.isClosed(e.to)) continue;
+        if (visited.count(e.to)) continue;
+        stk.push(e.to);
+      }
+    }
+  };
+
+  std::vector<int> allOpen;
+  for (int id : openIds) allOpen.push_back(id);
+  std::sort(allOpen.begin(), allOpen.end());
+
+  for (int id : allOpen) {
+    if (visited.count(id)) continue;
+    std::vector<int> comp;
+    dfsFull(id, comp);
+    std::sort(comp.begin(), comp.end());
+    ninfo.components.push_back(comp);
+  }
+
+  ninfo.componentCount = (int)ninfo.components.size();
+  ninfo.isConnected = (ninfo.componentCount == 1);
+
+  return ninfo;
 }

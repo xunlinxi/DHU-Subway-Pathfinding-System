@@ -134,6 +134,11 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
 
 // ============================================================
 //                      主菜单
+//   按指导书 §3.8 运行效果图：
+//   1. 线路站点信息/运营状态管理
+//   2. 所需时间最短路径规划
+//   3. 所需换乘次数最少路径规划
+//   4. 退出系统
 // ============================================================
 void Menu::run() {
   while (true) {
@@ -143,50 +148,62 @@ void Menu::run() {
     std::cout << "  (Shanghai Metro Routing & Management)\n";
     std::cout << "========================================\n";
     std::cout << "  1. 线路站点信息/运营状态管理\n";
-    std::cout << "  2. 线路规划（路径查询）\n";
-    std::cout << "  3. 保存当前数据\n";
-    std::cout << "  0. 退出\n";
+    std::cout << "  2. 所需时间最短路径规划\n";
+    std::cout << "  3. 所需换乘次数最少路径规划\n";
+    std::cout << "  4. 退出系统\n";
     std::cout << "========================================\n";
     int ch = readInt("  请输入选项编号：");
     switch (ch) {
-      case 1: stationMenu(); break;
-      case 2: pathMenu();    break;
-      case 3: saveData();    pause(); break;
-      case 0:
+      case 1: stationMenu();        break;
+      case 2: timeMenu();           break;
+      case 3: transferMenu();       break;
+      case 4:
         std::cout << "  感谢使用，再见！\n";
         return;
       default:
-        std::cout << "  [提示] 无效选项。\n"; pause();
+        std::cout << "  [提示] 输入无效，请输入数字选项1、2、3、4。\n"; pause();
     }
   }
 }
 
 
 // ============================================================
-//   站点管理子菜单（按运行效果图 §3.8.1）
+//   站点管理子菜单（按运行效果图 §3.8.1 + 运营管理扩展）
+//   1.批量更新 2.手工更新 3.显示关闭站点 4.恢复初始
+//   5.显示线路站点 6.换乘站整体关闭 7.线路停运管理
+//   8.全网停运管理 9.受影响区域分析 10.网络连通性分析
+//   11.保存数据 12.返回上级菜单
 // ============================================================
 void Menu::stationMenu() {
   while (true) {
     clearScreen();
     std::cout << "--- 线路站点信息/运营状态管理 ---\n";
     std::cout << "1. 从 CSV 文件批量更新站点开启/关闭状态\n";
-    std::cout << "2. 手工更新当前站点开启/关闭状态\n";
+    std::cout << "2. 手工更新站点开启/关闭状态\n";
     std::cout << "3. 显示当前关闭站点\n";
     std::cout << "4. 恢复所有站点初始状态\n";
     std::cout << "5. 显示线路站点信息\n";
-    std::cout << "6. 受关闭站点影响站点分析\n";
-    std::cout << "7. 站点查询\n";
-    std::cout << "8. 返回上级菜单\n";
+    std::cout << "6. 换乘站整体关闭管理\n";
+    std::cout << "7. 线路停运管理\n";
+    std::cout << "8. 全网停运/恢复管理\n";
+    std::cout << "9. 受关闭站点影响站点分析\n";
+    std::cout << "10. 网络连通性分析\n";
+    std::cout << "11. 保存当前数据\n";
+    std::cout << "12. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
-      case 1: batchUpdateFromCSV();   pause(); break;
-      case 2: toggleOneStation();     pause(); break;
-      case 3: showClosedStations();   pause(); break;
-      case 4: restoreInitial();       pause(); break;
-      case 5: showLineStations();     pause(); break;
-      case 6: impactMenu();           pause(); break;   // 影响分析: 内部打印后暂停
-      case 7: queryStations();        pause(); break;
-      case 8: return;
+      case 1:  batchUpdateFromCSV();       pause(); break;
+      case 2:  toggleOneStation();         pause(); break;
+      case 3:  showClosedStations();       pause(); break;
+      case 4:  restoreInitial();           pause(); break;
+      case 5:  showLineStations();         pause(); break;
+      case 6:  closeTransferStationMenu(); pause(); break;
+      case 7:  lineOutageMenu();           pause(); break;
+      case 8:  networkOutageMenu();        pause(); break;
+      case 9:  runImpactAnalysis();        pause(); break;
+      case 10: networkConnectivityMenu();  pause(); break;
+      case 11: saveData();                 pause(); break;
+      case 12: return;
       default: std::cout << "  [提示] 无效选项。\n"; pause();
     }
   }
@@ -235,33 +252,41 @@ void Menu::batchUpdateFromCSV() {
     return;
   }
 
-  if (sm_.batchUpdateFromCSV(input))
+  if (sm_.batchUpdateFromCSV(input) >= 0)
     std::cout << "  [完成] 批量更新已执行。\n";
   else
-    std::cout << "  [提示] 批量更新已执行，但存在失败记录，请检查上方统计与 CSV 内容。\n";
+    std::cout << "  [失败] 更新文件不存在或无法打开。\n";
 }
 
 
-// ---------- 2) 手工更新单个站点 ----------
+// ---------- 2) 手工更新站点状态（支持循环操作 + 统计）----------
 void Menu::toggleOneStation() {
   clearScreen();
   std::cout << "--- 手工更新站点状态 ---\n";
-  int id = fuzzyPickStation("  请输入待修改站点关键字（exit 退出）：");
-  if (id < 0) return;
-  const Station *s = sm_.findById(id);
-  if (!s) return;
-  std::cout << "  关闭站点 (开启/关闭) > ";
-  std::string newSt;
-  std::getline(std::cin, newSt);
-  if (newSt != "开启" && newSt != "关闭") {
-    std::cout << "  [提示] 状态只能是 开启/关闭。\n";
-    return;
+  int modifiedCnt = 0;
+  while (true) {
+    int id = fuzzyPickStation("  请输入待修改站点关键词（exit退出）：");
+    if (id < 0) break;
+    const Station *s = sm_.findById(id);
+    if (!s) continue;
+    std::cout << "  " << s->name << "," << s->line << "," << s->status << "\n";
+    std::string newSt = readLine("  请输入站点状态（开启/关闭）> ");
+    if (newSt != "开启" && newSt != "关闭") {
+      std::cout << "  [提示] 状态只能是 开启/关闭。\n";
+      continue;
+    }
+    if (sm_.setStationStatus(s->name, s->line, newSt)) {
+      std::cout << "  修改站点: " << s->name << " (" << s->line
+                << ") -> 状态: " << newSt << "\n";
+      ++modifiedCnt;
+    } else {
+      std::cout << "  [失败] 状态切换失败。\n";
+    }
   }
-  if (sm_.setStationStatus(s->name, s->line, newSt)) {
-    std::cout << "  关闭站点：" << s->name << "(" << s->line << ")\n";
-  } else {
-    std::cout << "  [失败] 状态切换失败。\n";
-  }
+  if (modifiedCnt > 0)
+    std::cout << modifiedCnt << " 个站点的状态修改完成。\n";
+  else
+    std::cout << "  没有修改任何站点。\n";
 }
 
 
@@ -271,7 +296,7 @@ void Menu::showClosedStations() {
   std::cout << "--- 当前关闭的站点 ---\n";
   auto closed = sm_.getClosedStations();
   if (closed.empty()) {
-    std::cout << "  (无)\n";
+    std::cout << "  所有站点均处于开放状态。\n";
     return;
   }
   for (size_t i = 0; i < closed.size(); ++i) {
@@ -282,14 +307,16 @@ void Menu::showClosedStations() {
 }
 
 
-// ---------- 4) 恢复所有站点初始状态 ----------
+// ---------- 4) 恢复所有站点初始状态 (Y/N 确认) ----------
 void Menu::restoreInitial() {
   clearScreen();
   std::cout << "--- 恢复所有站点初始状态 ---\n";
-  int confirm = readInt("  确认恢复所有站点为初始状态? 1=是 0=否 : ", 0);
-  if (confirm == 1) {
+  std::string answer = readLine("  您确定要恢复所有站点的初始状态?（Y/N）");
+  if (answer == "Y" || answer == "y" || answer == "是") {
     sm_.restoreInitialStatus();
-    std::cout << "  [完成] 已恢复 Station_init.csv 中的初始状态。\n";
+    std::cout << "  已成功恢复至初始状态。\n";
+  } else {
+    std::cout << "  已取消恢复操作。\n";
   }
 }
 
@@ -312,9 +339,8 @@ void Menu::showLineStations() {
   int choice = readInt("  请输入要查询的线路序号：", -1);
   if (choice < 0)
     return;
-  if (choice == 0 || (size_t)choice > allLines.size()) {
-    std::cout << "  [提示] 线路序号无效，请输入 1 到 "
-              << allLines.size() << " 之间的数字。\n";
+  if (choice <= 0 || (size_t)choice > allLines.size()) {
+    std::cout << "  [提示] 线路编号无效。\n";
     return;
   }
 
@@ -368,22 +394,46 @@ void Menu::queryStations() {
 
 
 // ============================================================
-//   线路规划子菜单（按运行效果图 §3.8.2）
+//   时间最优子菜单（独立二级菜单，按 §3.8 运行效果图）
+//   1. 单条所需时间最短路径
+//   2. 3条所需时间最短路径
+//   3. 返回上级菜单
 // ============================================================
-void Menu::pathMenu() {
+void Menu::timeMenu() {
   while (true) {
     clearScreen();
-    std::cout << "--- 线路规划 ---\n";
-    std::cout << "1. 单条时间最短路径\n";
-    std::cout << "2. 3 条多次需时最短路径\n";
-    std::cout << "3. 3 条单次换乘最少路径\n";
-    std::cout << "0. 退出\n";
+    std::cout << "--- 所需时间最短路径规划 ---\n";
+    std::cout << "1. 单条所需时间最短路径\n";
+    std::cout << "2. 3条所需时间最短路径\n";
+    std::cout << "3. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
       case 1: runPathQuery(0); pause(); break;
       case 2: runPathQuery(2); pause(); break;
-      case 3: runPathQuery(3); pause(); break;
-      case 0: return;
+      case 3: return;
+      default: std::cout << "  [提示] 无效选项。\n"; pause();
+    }
+  }
+}
+
+// ============================================================
+//   换乘最优子菜单（独立二级菜单，按 §3.8 运行效果图）
+//   1. 单条换乘次数最少路径
+//   2. 3条换乘次数最少路径
+//   3. 返回主菜单
+// ============================================================
+void Menu::transferMenu() {
+  while (true) {
+    clearScreen();
+    std::cout << "--- 所需换乘次数最少路径规划 ---\n";
+    std::cout << "1. 单条换乘次数最少路径\n";
+    std::cout << "2. 3条换乘次数最少路径\n";
+    std::cout << "3. 返回主菜单\n";
+    int ch = readInt("请输入选项编号：");
+    switch (ch) {
+      case 1: runPathQuery(1); pause(); break;
+      case 2: runPathQuery(3); pause(); break;
+      case 3: return;
       default: std::cout << "  [提示] 无效选项。\n"; pause();
     }
   }
@@ -393,30 +443,50 @@ void Menu::pathMenu() {
 // ---------- 路径查询核心 ----------
 void Menu::runPathQuery(int mode) {
   clearScreen();
-  const char *titles[] = {"单条时间最短路径",
-                          "[unused]",
-                          "3 条多次需时最短路径",
-                          "3 条单次换乘最少路径"};
+  const char *titles[] = {"单条所需时间最短路径",
+                          "单条换乘次数最少路径",
+                          "3 条所需时间最短路径",
+                          "3 条换乘次数最少路径"};
   std::cout << "--- " << titles[mode] << " ---\n";
 
-  int sId = fuzzyPickStation("请输入起点站名（部分汉字可）：");
+  int sId = fuzzyPickStation("请输入起点站关键词：");
   if (sId < 0) return;
-  int eId = fuzzyPickStation("请输入终点站名（部分汉字可）：");
+  int eId = fuzzyPickStation("请输入终点站关键词：");
   if (eId < 0) return;
   if (sId == eId) {
-    std::cout << "  [提示] 起点与终点相同。\n";
+    std::cout << "  [提示] 起点和终点相同，无需进行路径规划。\n";
     return;
   }
   const Station *ss = sm_.findById(sId);
   const Station *es = sm_.findById(eId);
+  if (!ss || !es) return;
+
+  // 前置检查起点/终点是否关闭
+  if (ss->status == "关闭") {
+    std::cout << "  起点：" << ss->name << "（" << ss->line
+              << "）已关闭，无法进行路径规划。\n";
+    return;
+  }
+  if (es->status == "关闭") {
+    std::cout << "  终点：" << es->name << "（" << es->line
+              << "）已关闭，无法进行路径规划。\n";
+    return;
+  }
   std::cout << "  起点：" << ss->name << " (" << ss->line << ")\n";
   std::cout << "  终点：" << es->name << " (" << es->line << ")\n\n";
 
   if (mode == 0) {
+    // 单条时间最短
     Path p = pf_.findBestByTime(sId, eId);
     if (!p.valid) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
-    std::cout << "  [路径 1] " << p.toPrettyString(sm_) << "\n";
+    std::cout << p.toPrettyString(sm_) << "\n";
+  } else if (mode == 1) {
+    // 单条换乘最少
+    Path p = pf_.findBestByTransfer(sId, eId);
+    if (!p.valid) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
+    std::cout << p.toPrettyString(sm_) << "\n";
   } else if (mode == 2) {
+    // K 条时间最短
     auto paths = pf_.findKShortestByTime(sId, eId, 3);
     if (paths.empty()) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
     for (size_t i = 0; i < paths.size(); ++i) {
@@ -424,6 +494,7 @@ void Menu::runPathQuery(int mode) {
                 << paths[i].toPrettyString(sm_) << "\n";
     }
   } else if (mode == 3) {
+    // K 条换乘最少
     auto paths = pf_.findKShortestByTransfer(sId, eId, 3);
     if (paths.empty()) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
     for (size_t i = 0; i < paths.size(); ++i) {
@@ -437,7 +508,7 @@ void Menu::runPathQuery(int mode) {
 // ============================================================
 //   受关闭站点影响站点分析（按运行效果图 §3.8.1 / §3.8.3）
 // ============================================================
-void Menu::impactMenu() {
+void Menu::runImpactAnalysis() {
   clearScreen();
   std::cout << "--- 受关闭站点影响站点分析 ---\n";
   int id = fuzzyPickStation("  请输入待分析站点关键字：");
@@ -477,8 +548,127 @@ void Menu::impactMenu() {
 
 
 // ============================================================
-//                     保存数据
+//      §3.3 建站管理（可选加分项）+ 运营管理扩展
 // ============================================================
+void Menu::buildMenu() {
+  stationMenu();
+}
+
+// ---- 运营管理扩展：换乘站整体关闭 ----
+void Menu::closeTransferStationMenu() {
+  clearScreen();
+  std::cout << "--- 换乘站整体关闭管理 ---\n";
+  std::cout << "  [说明] 输入换乘站名称（如\"人民广场\"），将同时关闭该站所有线路的站点。\n";
+  std::string name = readLine("  请输入换乘站名称：");
+  if (name.empty()) return;
+  name = StationManager::trim(name);
+  int cnt = sm_.closeTransferStation(name);
+  if (cnt == 0)
+    std::cout << "  [提示] 操作未生效，请检查站点名称是否正确或是否为换乘站。\n";
+  else
+    std::cout << "  [完成] 已关闭 " << cnt << " 个站点。\n";
+}
+
+// ---- 运营管理扩展：线路停运管理 ----
+void Menu::lineOutageMenu() {
+  while (true) {
+    clearScreen();
+    std::cout << "--- 线路停运管理 ---\n";
+    std::cout << "1. 停运指定线路\n";
+    std::cout << "2. 恢复指定线路\n";
+    std::cout << "3. 返回上级菜单\n";
+    int ch = readInt("请输入选项编号：");
+    if (ch == 3) return;
+    if (ch != 1 && ch != 2) {
+      std::cout << "  [提示] 无效选项。\n"; pause(); continue;
+    }
+
+    auto lines = sm_.getAllLines();
+    std::cout << "  可选线路：\n";
+    for (size_t i = 0; i < lines.size(); ++i)
+      std::cout << "  " << (i + 1) << ". " << lines[i] << "\n";
+
+    int lc = readInt("  请输入线路序号：", -1);
+    if (lc <= 0 || (size_t)lc > lines.size()) {
+      std::cout << "  [提示] 线路编号无效。\n"; pause(); continue;
+    }
+    std::string line = lines[lc - 1];
+
+    if (ch == 1)
+      sm_.closeLineStations(line);
+    else
+      sm_.openLineStations(line);
+    pause();
+  }
+}
+
+// ---- 运营管理扩展：全网停运/恢复 ----
+void Menu::networkOutageMenu() {
+  while (true) {
+    clearScreen();
+    std::cout << "--- 全网停运/恢复管理 ---\n";
+    std::cout << "1. 全网停运（关闭所有站点）\n";
+    std::cout << "2. 全网恢复（开启所有站点）\n";
+    std::cout << "3. 返回上级菜单\n";
+    int ch = readInt("请输入选项编号：");
+    switch (ch) {
+      case 1: {
+        std::string ans = readLine("  确认全网停运?（Y/N）");
+        if (ans == "Y" || ans == "y" || ans == "是")
+          sm_.closeAllStations();
+        else
+          std::cout << "  已取消。\n";
+        pause(); break;
+      }
+      case 2: {
+        std::string ans = readLine("  确认全网恢复?（Y/N）");
+        if (ans == "Y" || ans == "y" || ans == "是")
+          sm_.openAllStations();
+        else
+          std::cout << "  已取消。\n";
+        pause(); break;
+      }
+      case 3: return;
+      default: std::cout << "  [提示] 无效选项。\n"; pause();
+    }
+  }
+}
+
+// ---- 运营管理扩展：网络连通性分析 ----
+void Menu::networkConnectivityMenu() {
+  clearScreen();
+  std::cout << "--- 网络连通性分析 ---\n";
+  auto ninfo = pf_.analyzeNetworkConnectivity();
+
+  std::cout << "  开放站点数: " << ninfo.totalOpenStations << "\n";
+  std::cout << "  关闭站点数: " << ninfo.totalClosedStations << "\n";
+  std::cout << "  连通分量数: " << ninfo.componentCount << "\n";
+
+  if (ninfo.isConnected) {
+    std::cout << "  结论: 全网连通，所有开放站点之间可相互到达。\n";
+  } else {
+    std::cout << "  结论: 网络存在断裂！以下为各连通分量详情：\n";
+    for (int i = 0; i < ninfo.componentCount; ++i) {
+      const auto &comp = ninfo.components[i];
+      std::cout << "  ---- 分量 " << (i + 1) << " (" << comp.size()
+                << " 个站点) ----\n";
+      if (comp.size() <= 20) {
+        for (int id : comp) {
+          const Station *s = sm_.findById(id);
+          if (s) std::cout << "    " << s->name << "(" << s->line << ")\n";
+        }
+      } else {
+        for (size_t j = 0; j < 5 && j < comp.size(); ++j) {
+          const Station *s = sm_.findById(comp[j]);
+          if (s) std::cout << "    " << s->name << "(" << s->line << ")\n";
+        }
+        std::cout << "    ... 共 " << comp.size() << " 个站点\n";
+      }
+    }
+  }
+}
+
+// ---- 保存数据 (保留在主菜单外，通过站点管理子菜单访问) ----
 void Menu::saveData() {
   clearScreen();
   std::cout << "--- 保存当前数据 ---\n";
@@ -488,65 +678,4 @@ void Menu::saveData() {
     std::cout << "  [成功] 已保存到 " << path << "\n";
   else
     std::cout << "  [失败] 保存失败。\n";
-}
-
-
-// ============================================================
-//      §3.3 建站管理（可选加分项）
-// ============================================================
-void Menu::buildMenu() {
-  // 已整合进 stationMenu(). 此处保留兼容入口, 直接跳到 stationMenu 的 5 号功能
-  stationMenu();
-}
-void Menu::addNewStation() {
-  clearScreen();
-  std::cout << "--- 添加新站点 ---\n";
-  std::string name = readLine("  请输入新站点名: ");
-  if (name.empty()) { std::cout << "  [取消] 名称不能为空。\n"; return; }
-  std::string line = readLine("  请输入所属线路: ");
-  line = normalizeLineName(line);
-  std::string st   = readLine("  状态 (开启/关闭，默认开启): ");
-  if (st.empty()) st = "开启";
-  if (st != "开启" && st != "关闭") {
-    std::cout << "  [错误] 状态只能是 开启/关闭。\n"; return;
-  }
-  int newId = sm_.addStation(name, line, st);
-  if (newId < 0) {
-    std::cout << "  [失败] 已存在同名+同线路的站点。\n";
-    return;
-  }
-  std::cout << "  [成功] 已添加站点 ID=" << newId
-            << " (" << name << " / " << line << " / " << st << ")\n";
-}
-void Menu::removeExistingStation() {
-  clearScreen();
-  std::cout << "--- 删除站点 ---\n";
-  int id = fuzzyPickStation("  请输入要删除的站点关键字：");
-  if (id < 0) return;
-  const Station *s = sm_.findById(id);
-  if (!s) return;
-  int confirm = readInt("  确认删除? 1=是 0=否 : ", 0);
-  if (confirm == 1) {
-    if (sm_.removeStation(s->name, s->line))
-      std::cout << "  [成功] 站点已删除。\n";
-    else
-      std::cout << "  [失败] 删除失败。\n";
-  }
-}
-void Menu::addNewEdgeInteractive() {
-  clearScreen();
-  std::cout << "--- 手动添加一条边 ---\n";
-  int u = fuzzyPickStation("  请输入起点站: ");
-  if (u < 0) return;
-  int v = fuzzyPickStation("  请输入终点站: ");
-  if (v < 0) return;
-  std::string line = readLine("  请输入所属线路: ");
-  line = normalizeLineName(line);
-  if (line.empty()) { std::cout << "  [取消] 线路不能为空。\n"; return; }
-  int t = readInt("  请输入通行时间（分钟，默认 3）: ", 3);
-  if (graph_.addEdge(u, v, line, t))
-    std::cout << "  [成功] 已添加 " << u << " -> " << v
-              << " (" << line << ", " << t << " min)\n";
-  else
-    std::cout << "  [失败] 起点或终点不存在。\n";
 }
