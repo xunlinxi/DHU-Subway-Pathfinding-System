@@ -276,6 +276,106 @@
   .path-pretty .transfer { color: var(--bili-orange); font-weight: 600; }
   .path-pretty .start-end { color: var(--bili-pink); font-weight: 600; }
   .path-pretty .time { color: var(--bili-green); font-weight: 600; }
+
+  /* ============= 时间线样式路径 ============= */
+  .timeline-wrap {
+    background: #fff; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 18px 22px 14px;
+    margin-top: 4px;
+  }
+  .timeline {
+    position: relative;
+    display: flex; flex-direction: column;
+    padding-left: 18px;
+  }
+  /* 整条贯穿的灰色主线 */
+  .timeline::before {
+    content: ""; position: absolute;
+    left: 6px; top: 12px; bottom: 12px; width: 2px;
+    background: var(--border); border-radius: 1px;
+  }
+  .tl-row {
+    position: relative;
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 0; min-height: 34px;
+  }
+  /* 节点圆点 */
+  .tl-dot {
+    position: absolute; left: -18px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--bili-blue);
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1.5px var(--bili-blue);
+    z-index: 1;
+  }
+  .tl-dot.start {
+    background: var(--bili-green);
+    box-shadow: 0 0 0 1.5px var(--bili-green);
+  }
+  .tl-dot.end {
+    background: var(--bili-pink);
+    box-shadow: 0 0 0 1.5px var(--bili-pink);
+  }
+  /* 换乘节点 - 空心+橙色外圈 */
+  .tl-dot.transfer {
+    background: #fff;
+    box-shadow: 0 0 0 1.5px var(--bili-orange);
+  }
+  .tl-name {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 14px; color: var(--text-main);
+    font-weight: 500;
+  }
+  /* 线路徽章 - 棕色为主, 跟示例图保持一致 */
+  .tl-line-badge {
+    display: inline-block;
+    background: #7B4D3F; color: #fff;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 7px; border-radius: 4px;
+    line-height: 1.3; white-space: nowrap;
+    letter-spacing: .2px;
+  }
+  /* 上海地铁官方线路配色 (按线路号) */
+  .tl-line-badge.line-1  { background: #E60012; }
+  .tl-line-badge.line-2  { background: #36B449; }
+  .tl-line-badge.line-3  { background: #FFD800; color: #333; }
+  .tl-line-badge.line-4  { background: #93328E; }
+  .tl-line-badge.line-5  { background: #AE0042; }
+  .tl-line-badge.line-6  { background: #C40C25; }
+  .tl-line-badge.line-7  { background: #FF6900; }
+  .tl-line-badge.line-8  { background: #009AC0; }
+  .tl-line-badge.line-9  { background: #82C8E6; color: #333; }
+  .tl-line-badge.line-10 { background: #C4A6CB; color: #333; }
+  .tl-line-badge.line-11 { background: #7B4D3F; }
+  .tl-line-badge.line-12 { background: #007A5A; }
+  .tl-line-badge.line-13 { background: #EF95CF; color: #333; }
+  .tl-line-badge.line-14 { background: #3F4D5C; }
+  .tl-line-badge.line-15 { background: #B36843; }
+  .tl-line-badge.line-16 { background: #98D3A0; color: #333; }
+  .tl-line-badge.line-17 { background: #C09178; }
+  .tl-line-badge.line-18 { background: #294870; }
+  /* 换乘边 */
+  .tl-line-badge.line-transfer { background: var(--bili-orange); }
+  .tl-time {
+    font-size: 12px; color: var(--bili-green);
+    font-weight: 600; white-space: nowrap;
+    min-width: 60px; text-align: right;
+  }
+  .tl-time.start-end {
+    color: var(--bili-pink); font-weight: 500;
+  }
+  /* 换乘提示行 */
+  .tl-transfer-note {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--bili-orange); font-size: 12px;
+    padding: 2px 0 2px 6px; font-weight: 500;
+  }
+  .tl-transfer-note .arrow {
+    display: inline-block; font-size: 14px;
+    line-height: 1;
+  }
   .path-list-title {
     font-size: 13px; color: var(--text-muted);
     margin: 10px 0 8px; font-weight: 500;
@@ -310,6 +410,24 @@
   }
   .station-row:hover { background: var(--bg-soft); }
   .station-row:last-child { border-bottom: none; }
+  .line-group-header {
+    background: var(--bg-soft); padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 600; font-size: 13px; color: var(--text-regular);
+    display: flex; align-items: center; gap: 8px;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .line-group-header .count {
+    font-size: 11px; font-weight: 400; color: var(--text-muted);
+  }
+  .station-bullet {
+    width: 20px; text-align: center; flex-shrink: 0;
+    color: var(--bili-blue); font-size: 12px; font-weight: 700;
+  }
+  .transfer-info {
+    font-size: 11px; color: var(--text-muted); margin-left: 6px;
+    font-weight: 400;
+  }
   .station-row .name {
     font-weight: 500; color: var(--text-main); flex: 1;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -655,16 +773,15 @@
 
       <details class="collapse">
         <summary>
-          <span class="title">数据持久化</span>
+          <span class="title">数据管理</span>
           <span class="arrow">▼</span>
         </summary>
         <div class="collapse-body">
           <div class="text-muted text-small mb-12">
             所有状态变更会自动保存到 <span class="kbd">data/Station.csv</span>。
-            如需手动触发保存或恢复到初始快照, 可使用下方按钮。
+            如需恢复至初始快照, 可使用下方按钮。
           </div>
           <div class="row-flex">
-            <button class="btn btn-primary" id="btn-save">💾 立即保存</button>
             <button class="btn btn-ghost"   id="btn-reset">♻️ 恢复初始</button>
             <span class="text-muted text-small" id="persist-status">-</span>
           </div>
@@ -683,7 +800,7 @@
         </summary>
         <div class="collapse-body">
           <div class="text-muted text-small mb-12">
-            输入站点名+线路, 分析若关闭该站点会影响的: 同线相邻站点、无邻站孤点、波及线路等。
+            输入站点名+线路, 分析若关闭该站点会影响的: 波及线路、同线相邻站点。
           </div>
           <div class="form-grid">
             <div class="form-item">
@@ -789,6 +906,152 @@ function prettyToHtml(text) {
   }).join('\n');
 }
 
+/* ---------- 时间线样式渲染 ---------- */
+// 解析 pretty 文本为结构化数据
+// 格式示例:
+//   迪士尼[11号线]:
+//   迪士尼 -> 康新公路 -> 秀沿路
+//   站内换乘至[2号线]
+//   川沙 -> 华夏东路 -> ...
+//     总耗时: 13 分钟 | 换乘: 1 次 | 途经: 5 站 | 实际经过: 5 站
+function parsePrettyPath(text) {
+  if (!text) return null;
+  const lines = text.split('\n').map(s => s.trim()).filter(s => s);
+  if (!lines.length) return null;
+  const result = { segments: [] };
+  // 段 0: header "站点名[线路标签]:"
+  // 解析线路标签如 "11号线" / "4号线·内圈方向" / "2号线 (内圈方向)"
+  const lineRe = /^(.+?)\[([^\]]+)\][：:]\s*$/;
+  let i = 0;
+  let currentLine = '';
+  let pendingTransfer = null; // {fromLine, toLine}
+
+  for (; i < lines.length; i++) {
+    const ln = lines[i];
+    // 总耗时行: 结束
+    if (/^总耗时[：:]/.test(ln)) {
+      const m = ln.match(/总耗时[：:]\s*(\d+)\s*分钟/);
+      if (m) result.totalTime = parseInt(m[1], 10);
+      const m2 = ln.match(/换乘[：:]\s*(\d+)\s*次/);
+      if (m2) result.transfers = parseInt(m2[1], 10);
+      const m3 = ln.match(/途经[：:]\s*(\d+)\s*站/);
+      if (m3) result.stops = parseInt(m3[1], 10);
+      break;
+    }
+    // header 行: "站点名[线路]:"
+    const hm = ln.match(lineRe);
+    if (hm) {
+      currentLine = hm[2];
+      result.startName = hm[1];
+      result.startLine = currentLine;
+      continue;
+    }
+    // 换乘提示行: "站内换乘至[新线路]" 可能带方向 "(内圈方向)"
+    const tm = ln.match(/^站内换乘至\[([^\]]+)\]/);
+    if (tm) {
+      pendingTransfer = { fromLine: currentLine, toLine: tm[1] };
+      currentLine = tm[1];
+      continue;
+    }
+    // 站点行: "站A -> 站B -> 站C"
+    if (ln.includes('->')) {
+      const stations = ln.split('->').map(s => s.trim()).filter(s => s);
+      result.segments.push({
+        line: currentLine,
+        stations: stations,
+        isTransferAfter: !!pendingTransfer
+      });
+      pendingTransfer = null;
+      continue;
+    }
+    // 单站点 (没有 -> )
+    if (ln && !ln.startsWith('总耗时')) {
+      result.segments.push({
+        line: currentLine,
+        stations: [ln],
+        isTransferAfter: false
+      });
+    }
+  }
+  return result;
+}
+
+// 站到站的近似耗时分布: 把 totalTime 平分到所有跨线段
+// 渲染策略: 每行显示"从上一站到此站"的段时间增量 (与示例图风格一致)
+function distributeTimes(parsed) {
+  if (!parsed || !parsed.segments.length) return [];
+  const allStations = [];
+  parsed.segments.forEach((seg, idx) => {
+    seg.stations.forEach((st, sidx) => {
+      allStations.push({
+        name: st,
+        line: seg.line,
+        isTransferEntry: idx > 0 && sidx === 0,
+        isFirst: idx === 0 && sidx === 0,
+        isLast: idx === parsed.segments.length - 1 && sidx === seg.stations.length - 1
+      });
+    });
+  });
+  const segs = Math.max(1, allStations.length - 1);
+  const total = parsed.totalTime || 0;
+  // 每段均分
+  const perSeg = total / segs;
+  // 段间增量累计: 起点 = 0, 之后每站 = 上一站 + perSeg
+  let acc = 0;
+  return allStations.map((s, i) => {
+    if (i > 0) acc += perSeg;
+    return { ...s, segMin: i === 0 ? 0 : perSeg, cumMin: i === 0 ? 0 : acc };
+  });
+}
+
+function formatMin(min) {
+  const m = Math.round(min);
+  if (m <= 0) return '0min';
+  return `+${m}min`;
+}
+
+function timelineHtml(parsed) {
+  if (!parsed || !parsed.segments.length) return '';
+  const flat = distributeTimes(parsed);
+  // 从线路标签中提取线路号, 用于配色
+  const lineClassOf = (label) => {
+    if (!label) return 'line-transfer';
+    const m = label.match(/(\d+)\s*号线/);
+    if (m) return `line-${m[1]}`;
+    return '';
+  };
+  const html = ['<div class="timeline">'];
+  flat.forEach((s) => {
+    let dotCls = 'tl-dot';
+    let timeCls = 'tl-time';
+    let timeText = '';
+    if (s.isFirst) {
+      dotCls += ' start';
+      timeCls += ' start-end';
+      timeText = '起点';
+    } else if (s.isLast) {
+      dotCls += ' end';
+      timeCls += ' start-end';
+      timeText = '终点';
+    } else if (s.isTransferEntry) {
+      dotCls += ' transfer';
+      timeText = formatMin(s.segMin);
+    } else {
+      timeText = formatMin(s.segMin);
+    }
+    const lc = lineClassOf(s.line);
+    html.push(
+      `<div class="tl-row">` +
+        `<span class="${dotCls}"></span>` +
+        `<span class="tl-name">${escapeHtml(s.name)}<span class="tl-line-badge ${lc}">${escapeHtml(s.line)}</span></span>` +
+        `<span class="${timeCls}">${escapeHtml(timeText)}</span>` +
+      `</div>`
+    );
+  });
+  html.push('</div>');
+  return html.join('');
+}
+
 /* =================================================================
    Tab 切换
    ================================================================= */
@@ -837,6 +1100,7 @@ $('btn-query').onclick = async () => {
     if (!data.ok) { alertErr(result, data.message || '查询失败'); return; }
 
     if (data.pretty) {
+      const parsed = parsePrettyPath(data.pretty);
       result.innerHTML = `
         <div class="path-card">
           <div class="path-meta">
@@ -845,11 +1109,21 @@ $('btn-query').onclick = async () => {
             <span class="meta-tag">🚉 途经 <b>${data.stops} 站</b></span>
             <span class="meta-tag">📍 实际 <b>${data.actual_stops} 站</b></span>
           </div>
-          <div class="path-pretty">${prettyToHtml(data.pretty)}</div>
+          <div class="timeline-wrap">${timelineHtml(parsed)}</div>
+          <details class="collapse" style="margin-top:10px;box-shadow:none;">
+            <summary style="padding:8px 12px;font-size:12px;color:var(--text-muted);">
+              <span class="title" style="font-size:12px;font-weight:500;color:var(--text-muted);">📋 查看文本路径</span>
+              <span class="arrow">▼</span>
+            </summary>
+            <div class="collapse-body" style="padding-top:6px;">
+              <div class="path-pretty">${prettyToHtml(data.pretty)}</div>
+            </div>
+          </details>
         </div>`;
     } else if (data.paths && data.paths.length) {
       let html = `<div class="path-list-title">共 ${data.paths.length} 条候选路径 (按 ${currentMode==='time'?'时间':'换乘'} 排序)</div>`;
       data.paths.forEach((p, i) => {
+        const parsed = parsePrettyPath(p.pretty);
         html += `
           <div class="path-card">
             <div class="path-meta">
@@ -858,7 +1132,16 @@ $('btn-query').onclick = async () => {
               <span class="meta-tag">🔄 <b>${p.transfers} 次</b></span>
               <span class="meta-tag">🚉 <b>${p.stops} 站</b></span>
             </div>
-            <div class="path-pretty">${prettyToHtml(p.pretty)}</div>
+            <div class="timeline-wrap">${timelineHtml(parsed)}</div>
+            <details class="collapse" style="margin-top:10px;box-shadow:none;">
+              <summary style="padding:8px 12px;font-size:12px;color:var(--text-muted);">
+                <span class="title" style="font-size:12px;font-weight:500;color:var(--text-muted);">📋 查看文本路径</span>
+                <span class="arrow">▼</span>
+              </summary>
+              <div class="collapse-body" style="padding-top:6px;">
+                <div class="path-pretty">${prettyToHtml(p.pretty)}</div>
+              </div>
+            </details>
           </div>`;
       });
       result.innerHTML = html;
@@ -893,7 +1176,11 @@ async function loadLines() {
   try {
     const data = await api('/api/subway/lines');
     if (!data.ok) return;
-    allLines = (data.items || []).map(x => x.line);
+    // 后端 list_lines 把全部线路放在一个 ITEM 块里, line 字段是数组
+    if (data.items && data.items.length > 0) {
+      const raw = data.items[0].line;
+      allLines = Array.isArray(raw) ? raw : [raw];
+    }
     // 填充 4 个下拉
     fillLineSelect($('start-line'), allLines);
     fillLineSelect($('end-line'),   allLines);
@@ -903,10 +1190,40 @@ async function loadLines() {
 }
 function fillLineSelect(sel, lines, includeEmpty = false) {
   const cur = sel.value;
+  const sorted = (lines || []).slice().sort(compareLines);
   sel.innerHTML = (includeEmpty ? '<option value="">（请选择）</option>' : '<option value="">（留空=默认匹配）</option>')
-               + lines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+               + sorted.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
   if (cur) sel.value = cur;
 }
+// 起点/终点线路下拉随站名输入动态过滤
+$('start-name').oninput = () => {
+  const kw = $('start-name').value.trim().toLowerCase();
+  const sel = $('start-line');
+  const cur = sel.value;
+  if (!kw) { fillLineSelect(sel, allLines); return; }
+  const matchedLines = [...new Set(allStations.filter(s => s.name.toLowerCase().includes(kw)).map(s => s.line))].sort(compareLines);
+  sel.innerHTML = '<option value="">（请选择）</option>' + matchedLines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  if (cur && matchedLines.includes(cur)) sel.value = cur;
+};
+$('end-name').oninput = () => {
+  const kw = $('end-name').value.trim().toLowerCase();
+  const sel = $('end-line');
+  const cur = sel.value;
+  if (!kw) { fillLineSelect(sel, allLines); return; }
+  const matchedLines = [...new Set(allStations.filter(s => s.name.toLowerCase().includes(kw)).map(s => s.line))].sort(compareLines);
+  sel.innerHTML = '<option value="">（请选择）</option>' + matchedLines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  if (cur && matchedLines.includes(cur)) sel.value = cur;
+};
+// 影响分析线路也随站名过滤
+$('impact-name').oninput = () => {
+  const kw = $('impact-name').value.trim().toLowerCase();
+  const sel = $('impact-line');
+  const cur = sel.value;
+  if (!kw) { fillLineSelect(sel, allLines, true); return; }
+  const matchedLines = [...new Set(allStations.filter(s => s.name.toLowerCase().includes(kw)).map(s => s.line))].sort(compareLines);
+  sel.innerHTML = '<option value="">（请选择）</option>' + matchedLines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  if (cur && matchedLines.includes(cur)) sel.value = cur;
+};
 function updateDatalist() {
   const names = [...new Set(allStations.map(s => s.name))];
   $('stations-datalist').innerHTML   = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
@@ -926,8 +1243,18 @@ function updateStats() {
   $('stat-closed').textContent = closed;
   $('stat-lines').textContent  = lines.size;
 }
+// 线路名排序: 提取开头数字按数字序, 非数字排到末尾
+function lineSortKey(name) {
+  const m = /(\d+)/.exec(name);
+  return m ? parseInt(m[1], 10) : 9999;
+}
+function compareLines(a, b) {
+  const ka = lineSortKey(a), kb = lineSortKey(b);
+  if (ka !== kb) return ka - kb;
+  return a.localeCompare(b, 'zh-CN');
+}
 function updateLineFilter() {
-  const lines = [...new Set(allStations.map(s => s.line))].sort((a,b) => a.localeCompare(b, 'zh-CN'));
+  const lines = [...new Set(allStations.map(s => s.line))].sort(compareLines);
   const cur = $('station-line-filter').value;
   $('station-line-filter').innerHTML =
     `<option value="">全部线路</option>` +
@@ -944,19 +1271,39 @@ function renderStations() {
   if (fil === 'open')   list = list.filter(s => s.status !== '关闭');
   if (fil === 'closed') list = list.filter(s => s.status === '关闭');
   if (line) list = list.filter(s => s.line === line);
-  list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN') || a.line.localeCompare(b.line, 'zh-CN'));
 
-  if (!list.length) { el.innerHTML = `<div class="empty">无匹配站点</div>`; return; }
-  el.innerHTML = list.map(s => {
-    const isOpen = s.status !== '关闭';
-    return `
+  // 按线路分组, 组内按 ID (站点在线路上的顺序) 排列
+  const groups = {};
+  for (const s of list) {
+    if (!groups[s.line]) groups[s.line] = [];
+    groups[s.line].push(s);
+  }
+  // 线路名排序 (按线路号数字序)
+  const sortedLines = Object.keys(groups).sort(compareLines);
+
+  if (!sortedLines.length) { el.innerHTML = `<div class="empty">无匹配站点</div>`; return; }
+
+  let html = '';
+  for (const ln of sortedLines) {
+    const lineStations = groups[ln];
+    // 组内按站点 ID 排序 (ID 编码了线路顺序)
+    lineStations.sort((a, b) => (a.id || 0) - (b.id || 0));
+    html += `<div class="line-group-header">${escapeHtml(ln)} <span class="count">${lineStations.length} 站</span></div>`;
+    for (const s of lineStations) {
+      const isOpen = s.status !== '关闭';
+      // 换乘信息: 同名站点出现在多条线路
+      const sameNameStations = allStations.filter(x => x.name === s.name && x.line !== s.line);
+      const transferInfo = sameNameStations.length ? ` (换乘 ${sameNameStations.map(x => x.line).join('/')})` : '';
+      html += `
       <div class="station-row">
-        <span class="name">${escapeHtml(s.name)}</span>
-        <span class="line-pill">${escapeHtml(s.line)}</span>
+        <span class="station-bullet">○</span>
+        <span class="name">${escapeHtml(s.name)}<span class="transfer-info">${escapeHtml(transferInfo)}</span></span>
         <span class="status-pill ${isOpen ? 'open' : 'closed'}">${escapeHtml(s.status)}</span>
         <div class="switch ${isOpen ? 'on' : ''}" data-name="${escapeHtml(s.name)}" data-line="${escapeHtml(s.line)}"></div>
       </div>`;
-  }).join('');
+    }
+  }
+  el.innerHTML = html;
   el.querySelectorAll('.switch').forEach(sw => {
     sw.onclick = () => toggleStation(sw.dataset.name, sw.dataset.line, sw);
   });
@@ -1087,14 +1434,6 @@ async function doNetToggle(action) {
   } catch (e) { toast('请求失败: ' + e.message, 'error'); }
 }
 
-$('btn-save').onclick = async () => {
-  try {
-    const data = await api('/api/subway/save', { method: 'POST' });
-    if (!data.ok) { toast('保存失败: ' + (data.message || ''), 'error'); return; }
-    toast('已保存到 Station.csv', 'success');
-    $('persist-status').textContent = `最近保存: ${new Date().toLocaleTimeString()}`;
-  } catch (e) { toast('请求失败: ' + e.message, 'error'); }
-};
 $('btn-reset').onclick = async () => {
   if (!confirm('确认恢复所有站点到初始开放状态?  此操作不可撤销.')) return;
   try {
@@ -1123,22 +1462,23 @@ $('btn-impact').onclick = async () => {
     if (!data.ok) { alertErr(out, data.message || '分析失败'); return; }
     const lines = (data.affected_lines || []).join(' / ') || '（无）';
     const adj = data.same_line_adj || [];
-    const noa = data.no_adj || [];
     out.innerHTML = `
       <div class="alert alert-info">
-        站点 <b>${escapeHtml(name)} (${escapeHtml(line)})</b>
-        &nbsp;&nbsp;波及线路: <b>${escapeHtml(lines)}</b>
+        站点 <b>${escapeHtml(name)} (${escapeHtml(line)})</b> 关闭后影响分析
+      </div>
+      <div class="impact-section">
+        <h4>波及线路 <span class="count">${(data.affected_lines || []).length}</span></h4>
+        <div class="st-tags">${
+          (data.affected_lines || []).length
+            ? (data.affected_lines || []).map(l =>
+                `<span class="st-tag">${escapeHtml(l)}</span>`).join('')
+            : '<div class="text-muted text-small">（无）</div>'
+        }</div>
       </div>
       <div class="impact-section">
         <h4>同线相邻站点 <span class="count">${adj.length}</span></h4>
         ${adj.length ? `<div class="st-tags">${
           adj.map(s => `<span class="st-tag">${escapeHtml(s.name)}<span class="l">${escapeHtml(s.line)}</span></span>`).join('')
-        }</div>` : '<div class="text-muted text-small">（无）</div>'}
-      </div>
-      <div class="impact-section">
-        <h4>孤立/无邻站点 <span class="count">${noa.length}</span></h4>
-        ${noa.length ? `<div class="st-tags">${
-          noa.map(s => `<span class="st-tag">${escapeHtml(s.name)}<span class="l">${escapeHtml(s.line)}</span></span>`).join('')
         }</div>` : '<div class="text-muted text-small">（无）</div>'}
       </div>
     `;

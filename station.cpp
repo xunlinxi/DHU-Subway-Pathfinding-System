@@ -1,4 +1,5 @@
 #include "station.h"
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <fstream>

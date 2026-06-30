@@ -345,13 +345,6 @@ static int cmdImpact(PathFinder &pf, StationManager &sm,
               << "\nLINE=" << (s ? s->line : "?") << "\n";
   }
   std::cout << "SAME_LINE_ADJ_END\n";
-  std::cout << "NO_ADJ_BEGIN\n";
-  for (int nid : info.noAdj) {
-    const Station *s = sm.findById(nid);
-    std::cout << "ID=" << nid << "\nNAME=" << (s ? s->name : "?")
-              << "\nLINE=" << (s ? s->line : "?") << "\n";
-  }
-  std::cout << "NO_ADJ_END\n";
   return 0;
 }
 

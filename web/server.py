@@ -70,7 +70,7 @@ def parse_output(stdout: str) -> Dict[str, Any]:
         """从 start 开始读 KEY=VALUE 行, 直到非 KEY=VALUE 行, 返回 (dict, 下一行索引)"""
         rec: Dict[str, Any] = {}
         while i < n and lines[i] != "ITEM_END" and lines[i] != "PATH_END" \
-              and lines[i] != "SAME_LINE_ADJ_END" and lines[i] != "NO_ADJ_END":
+              and lines[i] != "SAME_LINE_ADJ_END":
             if "=" in lines[i]:
                 k, v = lines[i].split("=", 1)
                 rec.setdefault(k.strip().lower(), []).append(_to_int(v.strip()))
@@ -154,24 +154,6 @@ def parse_output(stdout: str) -> Dict[str, Any]:
             if cur: adj.append(cur)
             i += 1
             data["same_line_adj"] = adj
-            continue
-
-        # 影响分析: NO_ADJ_BEGIN ... NO_ADJ_END
-        if line == "NO_ADJ_BEGIN":
-            i += 1
-            noa: List[Dict[str, Any]] = []
-            cur = {}
-            while i < n and lines[i] != "NO_ADJ_END":
-                if "=" in lines[i]:
-                    k, v = lines[i].split("=", 1)
-                    k = k.strip().lower(); v = v.strip()
-                    if k == "id" and cur:
-                        noa.append(cur); cur = {}
-                    cur[k] = _to_int(v) if k == "id" else v
-                i += 1
-            if cur: noa.append(cur)
-            i += 1
-            data["no_adj"] = noa
             continue
 
         # 连通性: COMP_BEGIN ... COMP_END

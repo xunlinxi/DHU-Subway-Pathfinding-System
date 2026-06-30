@@ -42,7 +42,6 @@ public:
     std::string name;                       // 被关闭站点名称
     std::string line;                       // 被关闭站点所在线路
     std::vector<int> sameLineAdj;           // 同线直接受影响站点
-    std::vector<int> noAdj;                 // 关闭后会失去同线相邻站的站点
     std::vector<std::string> affectedLines; // 受影响线路
   };
   ImpactInfo analyzeImpact(const std::string &name, const std::string &line);
