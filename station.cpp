@@ -165,23 +165,53 @@ bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
     auto fields = parseCSVLine(line);
     if (first) {
       first = false;
-      if (fields.size() >= 1 && fields[0] == "name")
+      if (!fields.empty() &&
+          (fields[0] == "name" || fields[0] == "id"))
         continue;
     }
-    if (fields.size() < 3)
+    if (fields.size() == 2) {
+      int id = -1;
+      try {
+        id = std::stoi(fields[0]);
+      } catch (...) {
+        ++fail;
+        continue;
+      }
+      const Station *s = findById(id);
+      if (!s) {
+        ++fail;
+        continue;
+      }
+      if (fields[1] != "开启" && fields[1] != "关闭") {
+        ++fail;
+        continue;
+      }
+      if (setStationStatus(s->name, s->line, fields[1]))
+        ++success;
+      else
+        ++fail;
       continue;
-    std::string name = fields[0];
-    std::string ln = fields[1];
-    std::string st = fields[2];
-    if (setStationStatus(name, ln, st))
-      ++success;
-    else
-      ++fail;
+    }
+    if (fields.size() >= 3) {
+      std::string name = fields[0];
+      std::string ln = fields[1];
+      std::string st = fields[2];
+      if (st != "开启" && st != "关闭") {
+        ++fail;
+        continue;
+      }
+      if (setStationStatus(name, ln, st))
+        ++success;
+      else
+        ++fail;
+      continue;
+    }
+    ++fail;
   }
   fin.close();
   std::cout << "[批量更新] 成功 " << success << " 条，失败 " << fail
             << " 条。\n";
-  return true;
+  return fail == 0;
 }
 
 // ---------- 模糊搜索 ----------

@@ -197,10 +197,48 @@ void Menu::stationMenu() {
 void Menu::batchUpdateFromCSV() {
   clearScreen();
   std::cout << "--- 批量更新站点状态 ---\n";
-  std::string path = readLine("  请输入 CSV 路径（直接回车使用 update_station_status.csv）: ");
-  if (path.empty()) path = "data/update_station_status.csv";
-  int cnt = sm_.batchUpdateFromCSV(path);
-  std::cout << "  [完成] 共更新 " << cnt << " 个站点状态。\n";
+  std::cout << "  [提示] 支持两种格式：id,status 或 name,line,status\n";
+  std::string input = readLine(
+      "  请输入 CSV 路径（直接回车使用 data/update_station_status.csv，也可直接输入一条记录）: ");
+  if (input.empty()) input = "data/update_station_status.csv";
+
+  auto fields = StationManager::parseCSVLine(input);
+  bool handled = false;
+  bool ok = false;
+  if (fields.size() == 2) {
+    try {
+      int id = std::stoi(StationManager::trim(fields[0]));
+      const Station *s = sm_.findById(id);
+      std::string status = StationManager::trim(fields[1]);
+      if (s && (status == "开启" || status == "关闭")) {
+        handled = true;
+        ok = sm_.setStationStatus(s->name, s->line, status);
+      }
+    } catch (...) {
+    }
+  } else if (fields.size() >= 3) {
+    std::string name = StationManager::trim(fields[0]);
+    std::string line = StationManager::trim(fields[1]);
+    std::string status = StationManager::trim(fields[2]);
+    if (!name.empty() && !line.empty() &&
+        (status == "开启" || status == "关闭")) {
+      handled = true;
+      ok = sm_.setStationStatus(name, line, status);
+    }
+  }
+
+  if (handled) {
+    if (ok)
+      std::cout << "  [完成] 单条站点状态更新成功。\n";
+    else
+      std::cout << "  [失败] 单条站点状态更新失败，请检查站点名、线路名或状态值。\n";
+    return;
+  }
+
+  if (sm_.batchUpdateFromCSV(input))
+    std::cout << "  [完成] 批量更新已执行。\n";
+  else
+    std::cout << "  [提示] 批量更新已执行，但存在失败记录，请检查上方统计与 CSV 内容。\n";
 }
 
 
@@ -419,22 +457,18 @@ void Menu::impactMenu() {
     for (auto &ln : info.affectedLines) std::cout << "  " << ln << "\n";
   }
 
-  std::cout << "\n直接影响响应站点：\n";
+  std::cout << "\n直接影响相邻站点：\n";
   if (info.sameLineAdj.empty()) {
     std::cout << "  (无)\n";
   } else {
+    std::unordered_set<int> isolated(info.noAdj.begin(), info.noAdj.end());
     for (int nid : info.sameLineAdj) {
       const Station *ns = sm_.findById(nid);
       std::cout << "  " << (ns ? ns->name : "?")
-                << "(" << (ns ? ns->line : "?") << ")\n";
-    }
-  }
-  if (!info.noAdj.empty()) {
-    std::cout << "无相邻站点\n";
-    for (int nid : info.noAdj) {
-      const Station *ns = sm_.findById(nid);
-      std::cout << "  " << (ns ? ns->name : "?")
-                << "(" << (ns ? ns->line : "?") << ")\n";
+                << "(" << (ns ? ns->line : "?") << ")";
+      if (isolated.count(nid))
+        std::cout << " [关闭后将成为无相邻站点]";
+      std::cout << "\n";
     }
   }
 

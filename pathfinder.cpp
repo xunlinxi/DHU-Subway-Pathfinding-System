@@ -419,13 +419,37 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
   if (targetId < 0)
     return info;
   info.sameLineAdj = graph_.sameLineNeighbors(targetId);
+  {
+    std::vector<int> dedupAdj;
+    std::unordered_set<int> seenAdj;
+    for (int sid : info.sameLineAdj) {
+      if (seenAdj.insert(sid).second)
+        dedupAdj.push_back(sid);
+    }
+    info.sameLineAdj.swap(dedupAdj);
+  }
 
   // 找出"被关后变成孤岛"的邻站
   for (int sid : info.sameLineAdj) {
     auto nbrs = graph_.sameLineNeighbors(sid);
-    bool onlyTarget = (nbrs.size() == 1 && nbrs[0] == targetId);
+    std::vector<int> uniqNbrs;
+    std::unordered_set<int> seenNbrs;
+    for (int nid : nbrs) {
+      if (seenNbrs.insert(nid).second)
+        uniqNbrs.push_back(nid);
+    }
+    bool onlyTarget = (uniqNbrs.size() == 1 && uniqNbrs[0] == targetId);
     if (onlyTarget)
       info.noAdj.push_back(sid);
+  }
+  {
+    std::vector<int> dedupNoAdj;
+    std::unordered_set<int> seenNoAdj;
+    for (int sid : info.noAdj) {
+      if (seenNoAdj.insert(sid).second)
+        dedupNoAdj.push_back(sid);
+    }
+    info.noAdj.swap(dedupNoAdj);
   }
   info.affectedLines.push_back(line);
 

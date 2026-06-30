@@ -32,7 +32,8 @@ public:
   bool loadFromCSV(const std::string &csvPath);
   // 加载一份"初始状态"快照（用于一键恢复）
   bool loadInitFromCSV(const std::string &csvPath);
-  // 从 update_station_status.csv 批量更新（按 name+line 匹配）
+  // 从 update_station_status.csv 批量更新
+  // 支持两种格式：id,status 或 name,line,status
   bool batchUpdateFromCSV(const std::string &csvPath);
 
   // ---- 查询类 ----
