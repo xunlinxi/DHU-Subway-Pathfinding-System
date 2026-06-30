@@ -141,8 +141,7 @@ static int runDemo() {
   auto info = pf.analyzeImpact("世纪公园", "2号线");
   std::cout << "  站点: " << info.name << " (" << info.line << ")\n";
   std::cout << "  受影响线路数: " << info.affectedLines.size() << "\n";
-  std::cout << "  同线相邻数: " << info.sameLineAdj.size() << "\n";
-  std::cout << "  关闭后变孤立的站点数: " << info.noAdj.size() << "\n\n";
+  std::cout << "  同线相邻数: " << info.sameLineAdj.size() << "\n\n";
 
   std::cout << "========================================\n";
   std::cout << "  演示完成。\n";

@@ -232,7 +232,7 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
 
   std::cout << "[批量更新] 成功 " << success << " 条，失败 " << fail
             << " 条。\n";
-  return success > 0 && fail == 0;
+  return success;
 }
 
 std::vector<Station>

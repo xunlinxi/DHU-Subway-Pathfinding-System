@@ -303,7 +303,8 @@ void Menu::batchUpdateFromCSV() {
     if (ok) {
       std::cout << "  [完成] 单条站点状态更新成功。\n";
       // 实时同步到 CSV
-      stationManager_.saveCurrentToCSV("data/Station.csv");
+      if (!stationManager_.saveCurrentToCSV("data/Station.csv"))
+        std::cout << "  [失败] 目标文件不存在或无法写入: data/Station.csv。\n";
     } else
       std::cout
           << "  [失败] 单条站点状态更新失败，请检查站点名、线路名或状态值。\n";
@@ -313,8 +314,10 @@ void Menu::batchUpdateFromCSV() {
   int nUpdated = stationManager_.batchUpdateFromCSV(input);
   if (nUpdated >= 0) {
     std::cout << "  [完成] 批量更新已执行（" << nUpdated << " 条）。\n";
-    if (nUpdated > 0)
-      stationManager_.saveCurrentToCSV("data/Station.csv");
+    if (nUpdated > 0) {
+      if (!stationManager_.saveCurrentToCSV("data/Station.csv"))
+        std::cout << "  [失败] 目标文件不存在或无法写入: data/Station.csv。\n";
+    }
   } else
     std::cout << "  [失败] 更新文件不存在或无法打开。\n";
 }
@@ -377,11 +380,21 @@ void Menu::restoreInitial() {
   clearScreen();
   std::cout << "--- 恢复所有站点初始状态 ---\n";
   std::string confirm = readLine("您确定要恢复所有站点的初始状态?（Y/N）");
-  if (confirm == "Y" || confirm == "y") {
-    stationManager_.restoreInitialStatus();
-    stationManager_.saveCurrentToCSV("data/Station.csv");
-    std::cout << "已成功恢复所有站点至初始状态。\n";
+  if (confirm != "Y" && confirm != "y") {
+    std::cout << "  已取消恢复。\n";
+    return;
   }
+  // 尝试恢复（静默版本，便于判断异常分支）
+  if (!stationManager_.restoreInitialStatusSilent()) {
+    std::cout << "  无法打开初始化文件。\n";
+    return;
+  }
+  // 同步回写 Station.csv
+  if (!stationManager_.saveCurrentToCSV("data/Station.csv")) {
+    std::cout << "  无法写入目标文件。\n";
+    return;
+  }
+  std::cout << "已成功恢复所有站点至初始状态。\n";
 }
 
 // ---------- 5) 显示线路站点信息（按运行效果图 §3.8.1）----------
@@ -422,14 +435,17 @@ void Menu::showLineStations() {
     const auto &s = sts[i];
     auto same = stationManager_.getStationsByName(s.name);
     bool isTransfer = (same.size() > 1);
-    std::cout << "  ○ " << s.name;
+    std::cout << "  ○ [" << s.id << "] " << s.name;
     if (isTransfer) {
       std::cout << " (换乘 ";
+      bool first = true;
       for (size_t k = 0; k < same.size(); ++k) {
         if (same[k].line == s.line)
           continue;
+        if (!first)
+          std::cout << "/";
         std::cout << same[k].line;
-        break; // 仅显示一个换乘线路，简洁
+        first = false;
       }
       std::cout << ")";
     }
@@ -612,14 +628,10 @@ void Menu::runImpactAnalysis() {
   if (info.sameLineAdj.empty()) {
     std::cout << "  (无)\n";
   } else {
-    std::unordered_set<int> isolated(info.noAdj.begin(), info.noAdj.end());
     for (int nid : info.sameLineAdj) {
       const Station *ns = stationManager_.findById(nid);
       std::cout << "  " << (ns ? ns->name : "?") << "(" << (ns ? ns->line : "?")
-                << ")";
-      if (isolated.count(nid))
-        std::cout << " [关闭后将成为无相邻站点]";
-      std::cout << "\n";
+                << ")\n";
     }
   }
 }
@@ -769,18 +781,4 @@ void Menu::networkConnectivityMenu() {
       }
     }
   }
-}
-
-// ---- 保存数据 (保留在主菜单外，通过站点管理子菜单访问) ----
-void Menu::saveData() {
-  clearScreen();
-  std::cout << "--- 保存当前数据 ---\n";
-  std::string path =
-      readLine("  请输入保存路径（直接回车覆盖 data/Station.csv）: ");
-  if (path.empty())
-    path = "data/Station.csv";
-  if (stationManager_.saveCurrentToCSV(path))
-    std::cout << "  [成功] 已保存到 " << path << "\n";
-  else
-    std::cout << "  [失败] 保存失败。\n";
 }

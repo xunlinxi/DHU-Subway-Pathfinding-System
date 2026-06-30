@@ -39,13 +39,10 @@ public:
   bool saveCurrentToCSV(const std::string &csvPath) const;
 
   // ---- §3.3 路径状态信息管理与可视化模块 ----
-  // 规范名: updateStationStatus / saveStationStatus / showClosedStations /
+  // 规范名: updateStationStatus / showClosedStations /
   // showStationsByLine （与上方方法语义一致，仅为对齐规范命名）
   bool updateStationStatus(const std::string &csvPath) {
     return batchUpdateFromCSV(csvPath) >= 0;
-  }
-  bool saveStationStatus(const std::string &csvPath) const {
-    return saveCurrentToCSV(csvPath);
   }
   void showClosedStations(std::ostream &os = std::cout) const;
   void showStationsByLine(const std::string &line,

@@ -497,7 +497,15 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
     }
     info.sameLineAdj.swap(dedupAdj);
   }
-  info.affectedLines.push_back(line);
+  // 受影响线路：站点本身所在线路 + 换乘站点的其他线路
+  // (关闭换乘站会切断这些线路之间的换乘通道)
+  std::set<std::string> affectedSet;
+  affectedSet.insert(line);
+  for (const auto &s : stations) {
+    if (s.line != line)
+      affectedSet.insert(s.line);
+  }
+  info.affectedLines.assign(affectedSet.begin(), affectedSet.end());
 
   return info;
 }

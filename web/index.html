@@ -773,6 +773,28 @@
 
       <details class="collapse">
         <summary>
+          <span class="title">批量更新站点状态</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            支持 CSV 批量更新站点状态, 每行格式: <span class="kbd">name,line,status</span> 或 <span class="kbd">id,status</span> (status=开启/关闭).
+            可粘贴内容后应用, 或直接从 <span class="kbd">data/update_station_status.csv</span> 更新.
+          </div>
+          <div class="form-item">
+            <label>CSV 内容 (粘贴多行)</label>
+            <textarea id="batch-content" rows="6" style="width:100%;font-family:ui-monospace,monospace;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;resize:vertical;" placeholder="莘庄,1号线,关闭&#10;人民广场,2号线,开启&#10;100,关闭"></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-batch-apply">📝 应用粘贴内容</button>
+            <button class="btn btn-ghost"   id="btn-batch-file">📁 从默认文件更新</button>
+          </div>
+          <div id="batch-result" class="mt-12"></div>
+        </div>
+      </details>
+
+      <details class="collapse">
+        <summary>
           <span class="title">数据管理</span>
           <span class="arrow">▼</span>
         </summary>
@@ -1444,6 +1466,40 @@ $('btn-reset').onclick = async () => {
   } catch (e) { toast('请求失败: ' + e.message, 'error'); }
 };
 
+/* ---- 批量更新站点状态 ---- */
+$('btn-batch-apply').onclick = async () => {
+  const content = $('batch-content').value;
+  const out = $('batch-result');
+  if (!content.trim()) { alertErr(out, '请粘贴 CSV 内容, 或使用"从默认文件更新"'); return; }
+  if (!confirm('确认应用粘贴的批量更新? 此操作会修改站点状态并同步到 CSV.')) return;
+  showLoading(out, '正在批量更新...');
+  try {
+    const data = await api('/api/subway/station/batch-update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    if (!data.ok) { alertErr(out, data.message || '批量更新失败'); return; }
+    alertOk(out, `批量更新完成, 共更新 ${data.count} 条记录, 已同步到 CSV`);
+    await loadStations();
+    toast(`批量更新 ${data.count} 条`, 'success');
+  } catch (e) { alertErr(out, '请求失败: ' + e.message); }
+};
+$('btn-batch-file').onclick = async () => {
+  const out = $('batch-result');
+  if (!confirm('确认从 data/update_station_status.csv 执行批量更新?')) return;
+  showLoading(out, '正在从文件批量更新...');
+  try {
+    const data = await api('/api/subway/station/batch-update', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (!data.ok) { alertErr(out, data.message || '批量更新失败'); return; }
+    alertOk(out, `批量更新完成, 共更新 ${data.count} 条记录 (来源: ${data.path})`);
+    await loadStations();
+    toast(`批量更新 ${data.count} 条`, 'success');
+  } catch (e) { alertErr(out, '请求失败: ' + e.message); }
+};
+
 /* =================================================================
    Tab 4: 网络分析
    ================================================================= */
@@ -1514,6 +1570,23 @@ $('btn-network').onclick = async () => {
     });
     legend += '</div>';
 
+    // 各连通分量站点明细 (折叠)
+    let detail = '';
+    if (comps.length && comps[0].stations) {
+      detail = '<details class="collapse" style="margin-top:14px;box-shadow:var(--shadow-sm);"><summary style="padding:12px 16px;font-size:13px;color:var(--text-regular);"><span class="title" style="font-size:13px;font-weight:600;color:var(--text-main);">📋 各连通分量站点明细</span><span class="arrow">▼</span></summary><div class="collapse-body" style="padding-top:12px;">';
+      comps.forEach((c) => {
+        const sts = c.stations || [];
+        detail += `<div class="impact-section"><h4>分量 ${c.comp_id} <span class="count">${c.comp_size} 站</span></h4>`;
+        if (sts.length) {
+          detail += '<div class="st-tags">' + sts.map(s => `<span class="st-tag">${escapeHtml(s.name)}<span class="l">${escapeHtml(s.line)}</span></span>`).join('') + '</div>';
+        } else {
+          detail += '<div class="text-muted text-small">（无站点明细）</div>';
+        }
+        detail += '</div>';
+      });
+      detail += '</div></details>';
+    }
+
     out.innerHTML = `
       <div class="stats">
         <div class="stat-box">     <div class="stat-num">${total}</div>     <div class="stat-label">总站点</div></div>
@@ -1527,6 +1600,7 @@ $('btn-network').onclick = async () => {
       <div class="text-small text-muted">各连通分量大小 (按 id 排序):</div>
       ${bar}
       ${legend}
+      ${detail}
     `;
   } catch (e) {
     alertErr(out, '请求失败: ' + e.message);

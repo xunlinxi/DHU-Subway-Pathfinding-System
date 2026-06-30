@@ -20,7 +20,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse, JSONResponse
@@ -157,12 +157,32 @@ def parse_output(stdout: str) -> Dict[str, Any]:
             data["same_line_adj"] = adj
             continue
 
-        # 连通性: COMP_BEGIN ... COMP_END
+        # 连通性: COMP_BEGIN ... COMP_END (含各分量站点明细)
         if line == "COMP_BEGIN":
             i += 1
             comps: List[Dict[str, Any]] = []
-            cur = {}
+            cur: Dict[str, Any] = {}
             while i < n and lines[i] != "COMP_END":
+                if lines[i] == "STATIONS_BEGIN":
+                    i += 1
+                    stns: List[Dict[str, Any]] = []
+                    cur_st: Dict[str, Any] = {}
+                    while i < n and lines[i] != "STATIONS_END":
+                        if "=" in lines[i]:
+                            k, v = lines[i].split("=", 1)
+                            k = k.strip().lower(); v = v.strip()
+                            if k == "id" and cur_st:
+                                stns.append(cur_st); cur_st = {}
+                            if k == "id":
+                                cur_st[k] = _to_int(v)
+                            else:
+                                cur_st[k] = v
+                        i += 1
+                    if cur_st:
+                        stns.append(cur_st)
+                    i += 1  # 跳过 STATIONS_END
+                    cur["stations"] = stns
+                    continue
                 if "=" in lines[i]:
                     k, v = lines[i].split("=", 1)
                     k = k.strip().lower(); v = v.strip()
@@ -170,8 +190,9 @@ def parse_output(stdout: str) -> Dict[str, Any]:
                         comps.append(cur); cur = {}
                     cur[k] = _to_int(v)
                 i += 1
-            if cur: comps.append(cur)
-            i += 1
+            if cur:
+                comps.append(cur)
+            i += 1  # 跳过 COMP_END
             data["components"] = comps
             continue
 
@@ -281,9 +302,33 @@ def api_stations_line(line: str):
 def api_reset():
     return JSONResponse(run_main_web(["reset"]))
 
-@app.post("/api/subway/save")
-def api_save():
-    return JSONResponse(run_main_web(["save"]))
+class BatchUpdateRequest(BaseModel):
+    path:    Optional[str] = Field(None, description="CSV 文件路径, 留空则用 data/update_station_status.csv")
+    content: Optional[str] = Field(None, description="CSV 文本内容, 提供时写入临时文件后批量更新")
+
+@app.post("/api/subway/station/batch-update")
+def api_batch_update(req: BatchUpdateRequest):
+    import tempfile
+    tmp_path = None
+    try:
+        if req.content:
+            # 把粘贴的 CSV 内容写入 data/ 下临时文件, 再交给 main_web 读取
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".csv", dir=str(DATA_DIR), text=True)
+            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+                f.write(req.content)
+            result = run_main_web(["batch_update", tmp_path])
+        else:
+            args = ["batch_update"] + ([req.path] if req.path else [])
+            result = run_main_web(args)
+        if not result.get("ok"):
+            raise HTTPException(status_code=400, detail=result.get("message", "批量更新失败"))
+        return JSONResponse(result)
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 @app.post("/api/subway/station/close-transfer")
 def api_close_transfer(req: CloseTransferRequest):

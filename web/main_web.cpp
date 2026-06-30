@@ -16,7 +16,7 @@
 //    main_web list_line   <线路>
 //    main_web list_closed
 //    main_web reset
-//    main_web save
+//    main_web batch_update [path]
 //    main_web help
 //
 //  编译 (Unity Build, 一行搞定):
@@ -32,6 +32,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -138,6 +139,22 @@ static int cmdSingleQuery(StationManager &sm, PathFinder &pf,
     emitErr("找不到终点: " + end);
     return 0;
   }
+  if (sId == eId) {
+    emitErr("起点和终点相同，无需进行路径规划");
+    return 0;
+  }
+  const Station *ss = sm.findById(sId);
+  const Station *es = sm.findById(eId);
+  if (ss && ss->status == "关闭") {
+    emitErr("起点：" + ss->name + "（" + ss->line +
+            "）已关闭，无法进行路径规划");
+    return 0;
+  }
+  if (es && es->status == "关闭") {
+    emitErr("终点：" + es->name + "（" + es->line +
+            "）已关闭，无法进行路径规划");
+    return 0;
+  }
   Path p =
       byTime ? pf.findBestByTime(sId, eId) : pf.findBestByTransfer(sId, eId);
   emitOK();
@@ -160,6 +177,22 @@ static int cmdKQuery(StationManager &sm, PathFinder &pf,
   }
   if (eId < 0) {
     emitErr("找不到终点: " + end);
+    return 0;
+  }
+  if (sId == eId) {
+    emitErr("起点和终点相同，无需进行路径规划");
+    return 0;
+  }
+  const Station *ss = sm.findById(sId);
+  const Station *es = sm.findById(eId);
+  if (ss && ss->status == "关闭") {
+    emitErr("起点：" + ss->name + "（" + ss->line +
+            "）已关闭，无法进行路径规划");
+    return 0;
+  }
+  if (es && es->status == "关闭") {
+    emitErr("终点：" + es->name + "（" + es->line +
+            "）已关闭，无法进行路径规划");
     return 0;
   }
   if (K < 1)
@@ -255,17 +288,6 @@ static int cmdReset(StationManager &sm) {
   return 0;
 }
 
-static int cmdSave(const StationManager &sm) {
-  bool ok = sm.saveCurrentToCSV(STATION_CSV);
-  if (!ok) {
-    emitErr("写回 CSV 失败");
-    return 0;
-  }
-  emitOK();
-  std::cout << "PATH=" << STATION_CSV << "\n";
-  return 0;
-}
-
 // ---- 6. 换乘站整体关闭: close-transfer <name> ----
 static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
   // 先做副作用, 全部完成后再 emitOK (避免中文行污染协议头)
@@ -348,8 +370,8 @@ static int cmdImpact(PathFinder &pf, StationManager &sm,
   return 0;
 }
 
-// ---- 10. 网络连通性分析: network ----
-static int cmdNetwork(PathFinder &pf) {
+// ---- 10. 网络连通性分析: network (含各分量站点明细) ----
+static int cmdNetwork(PathFinder &pf, const StationManager &sm) {
   auto ninfo = pf.analyzeNetworkConnectivity();
   emitOK();
   std::cout << "OPEN=" << ninfo.totalOpenStations << "\n";
@@ -358,8 +380,17 @@ static int cmdNetwork(PathFinder &pf) {
   std::cout << "IS_CONNECTED=" << (ninfo.isConnected ? 1 : 0) << "\n";
   std::cout << "COMP_BEGIN\n";
   for (int i = 0; i < ninfo.componentCount; ++i) {
-    std::cout << "COMP_ID=" << i
-              << "\nCOMP_SIZE=" << (int)ninfo.components[i].size() << "\n";
+    const auto &comp = ninfo.components[i];
+    std::cout << "COMP_ID=" << i << "\n"
+              << "COMP_SIZE=" << (int)comp.size() << "\n"
+              << "STATIONS_BEGIN\n";
+    for (int id : comp) {
+      const Station *s = sm.findById(id);
+      std::cout << "ID=" << id << "\n"
+                << "NAME=" << (s ? s->name : "?") << "\n"
+                << "LINE=" << (s ? s->line : "?") << "\n";
+    }
+    std::cout << "STATIONS_END\n";
   }
   std::cout << "COMP_END\n";
   return 0;
@@ -374,6 +405,33 @@ static int cmdListLines(const StationManager &sm) {
   for (const auto &l : lines)
     std::cout << "LINE=" << l << "\n";
   std::cout << "ITEM_END\n";
+  return 0;
+}
+
+// ---- 12. 批量更新: batch_update [path] ----
+// path 留空时使用 data/update_station_status.csv
+// 复用 StationManager::batchUpdateFromCSV, 支持两种格式: id,status /
+// name,line,status
+// 注意: batchUpdateFromCSV 会向 stdout 打印中文进度行, 需临时重定向 cout
+// 捕获, 保证协议首行为 OK/ERR
+static int cmdBatchUpdate(StationManager &sm, const std::string &path) {
+  std::string p = path;
+  if (p.empty())
+    p = "data/update_station_status.csv";
+  std::stringstream captured;
+  std::streambuf *oldBuf = std::cout.rdbuf(captured.rdbuf());
+  int n = sm.batchUpdateFromCSV(p);
+  std::cout.rdbuf(oldBuf); // 恢复, 后续 emitOK/emitErr 输出到真实 stdout
+  if (n < 0) {
+    emitErr("批量更新失败: 文件无法打开或格式错误 (" + p + ")");
+    return 0;
+  }
+  if (n > 0)
+    sm.saveCurrentToCSV(STATION_CSV);
+  emitOK();
+  std::cout << "PATH=" << p << "\n";
+  std::cout << "COUNT=" << n << "\n";
+  std::cout << "MESSAGE=批量更新已执行 (" << n << " 条) 并保存到 CSV\n";
   return 0;
 }
 
@@ -394,8 +452,8 @@ static void printUsage() {
       << "  main_web list_line     <线路>\n"
       << "  main_web list_closed\n"
       << "  main_web list_lines    (列出所有线路名)\n"
+      << "  main_web batch_update  [path]  (批量更新站点状态)\n"
       << "  main_web reset\n"
-      << "  main_web save\n"
       << "  main_web help\n";
 }
 
@@ -468,8 +526,9 @@ int main(int argc, char **argv) {
   if (cmd == "reset") {
     return cmdReset(sm);
   }
-  if (cmd == "save") {
-    return cmdSave(sm);
+  if (cmd == "batch_update") {
+    std::string p = (argc >= 3) ? args[2] : "";
+    return cmdBatchUpdate(sm, p);
   }
   if (cmd == "close-transfer" && argc >= 3) {
     return cmdCloseTransfer(sm, args[2]);
@@ -484,7 +543,7 @@ int main(int argc, char **argv) {
     return cmdImpact(pf, sm, args[2], args[3]);
   }
   if (cmd == "network") {
-    return cmdNetwork(pf);
+    return cmdNetwork(pf, sm);
   }
   if (cmd == "list_lines") {
     return cmdListLines(sm);
