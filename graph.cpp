@@ -1,29 +1,30 @@
-// =============================================================
-//  graph.cpp
-//  实现 Graph：加载同线边 + 自动建换乘边 + 查询
-// =============================================================
 #include "graph.h"
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <ostream>
+#include <unordered_map>
 
-// ---------- 内部：按 id 调整 adj_ 大小 ----------
-static void ensureSize(std::vector<std::vector<Edge>> &adj, int id) {
-  if ((int)adj.size() <= id)
-    adj.resize(id + 1);
+namespace {
+void ensureSize(std::vector<std::vector<Edge>> &adjacencyList, int id) {
+  if ((int)adjacencyList.size() <= id)
+    adjacencyList.resize(id + 1);
 }
 
-// ---------- 添加一条有向边（避免重复） ----------
-static void addDirectedEdge(std::vector<std::vector<Edge>> &adj, int from,
-                            int to, const std::string &line, int time) {
+void addDirectedEdge(std::vector<std::vector<Edge>> &adjacencyList, int from,
+                            int to, const std::string &line, int time,
+                            const std::string &direction = "") {
   if (from < 0 || to < 0)
     return;
-  ensureSize(adj, std::max(from, to));
-  for (const auto &e : adj[from]) {
-    if (e.to == to && e.line == line)
-      return; // 同 (from, to, line) 唯一
+  ensureSize(adjacencyList, std::max(from, to));
+  for (const auto &e : adjacencyList[from]) {
+    if (e.to == to && e.line == line && e.direction == direction)
+      return;
   }
-  adj[from].push_back({to, line, time});
+  adjacencyList[from].push_back({to, line, direction, time});
 }
+} // namespace
 
-// ---------- 加载 Edge.csv ----------
 bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -34,158 +35,152 @@ bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
   bool first = true;
   int maxId = 0;
   while (std::getline(fin, line)) {
+    line = StationManager::trim(line);
     if (line.empty())
       continue;
-    // 复用 StationManager 的 CSV 解析
     auto fields = StationManager::parseCSVLine(line);
     if (first) {
       first = false;
       if (fields.size() >= 1 && fields[0] == "from")
         continue;
     }
-    // 格式: from, to, line, direction, time
-    if (fields.size() < 5)
+    if (fields.size() != 5) {
+      std::cerr << "[Graph] 边数据字段数量错误: " << line << std::endl;
       continue;
+    }
     int from, to, t;
     try {
       from = std::stoi(fields[0]);
       to = std::stoi(fields[1]);
       t = std::stoi(fields[4]);
     } catch (...) {
+      std::cerr << "[Graph] 非法边记录: " << line << std::endl;
+      continue;
+    }
+    if (!stationManager_.findById(from) || !stationManager_.findById(to)) {
+      std::cerr << "[Graph] 边引用了不存在的站点: " << line << std::endl;
       continue;
     }
     std::string ln = fields[2];
-    addDirectedEdge(adj_, from, to, ln, t);
+    std::string direction = fields[3];
+    addDirectedEdge(adjacencyList_, from, to, ln, t, direction);
     maxId = std::max(maxId, std::max(from, to));
   }
   fin.close();
-  ensureSize(adj_, maxId);
+  ensureSize(adjacencyList_, maxId);
   return true;
 }
 
-// ---------- 自动建立换乘边 ----------
-// 同名站点两两互联（不同线路），权重 = TRANSFER_TIME
-// 例如 "人民广场" 出现在 1/2/8 号线，则 3 个站 id 两两连 5 分钟
 void Graph::buildTransferEdges() {
   transferPairs_.clear();
-  // 1) 按 name 分组
   std::unordered_map<std::string, std::vector<int>> name2ids;
-  for (const auto &st : stationMgr_.allStations()) {
+  for (const auto &st : stationManager_.allStations()) {
     name2ids[st.name].push_back(st.id);
   }
-  // 2) 遍历每组，组内两两连
-  for (const auto &kv : name2ids) {
-    const auto &ids = kv.second;
+  for (const auto &entry : name2ids) {
+    const auto &ids = entry.second;
     if (ids.size() < 2)
-      continue; // 非换乘站跳过
+      continue;
     for (size_t i = 0; i < ids.size(); ++i) {
       for (size_t j = i + 1; j < ids.size(); ++j) {
         int a = ids[i], b = ids[j];
         auto key = std::minmax(a, b);
         if (transferPairs_.count(key))
-          continue; // 已加过
+          continue;
         transferPairs_.insert(key);
-        // 双向 5 分钟
-        const Station *sa = stationMgr_.findById(a);
-        const Station *sb = stationMgr_.findById(b);
+        const Station *sa = stationManager_.findById(a);
+        const Station *sb = stationManager_.findById(b);
         if (!sa || !sb)
           continue;
-        addDirectedEdge(adj_, a, b, "换乘", TRANSFER_TIME);
-        addDirectedEdge(adj_, b, a, "换乘", TRANSFER_TIME);
+        addDirectedEdge(adjacencyList_, a, b, "换乘", kTransferMinutes, "换乘");
+        addDirectedEdge(adjacencyList_, b, a, "换乘", kTransferMinutes, "换乘");
       }
     }
   }
 }
 
-// ---------- 一键构建 ----------
 bool Graph::build(const std::string &edgeCsvPath) {
-  adj_.clear();
+  adjacencyList_.clear();
   if (!loadEdgesFromCSV(edgeCsvPath))
     return false;
   buildTransferEdges();
   return true;
 }
 
-// ---------- 清空邻接表 ----------
 void Graph::clear() {
-  adj_.clear();
+  adjacencyList_.clear();
   transferPairs_.clear();
 }
 
-// ---------- 重新构建 ----------
 void Graph::rebuild(const std::string &edgeCsvPath) {
   clear();
   loadEdgesFromCSV(edgeCsvPath);
   buildTransferEdges();
 }
 
-// ---------- §3.3 建站管理：手动添加一条有向边 ----------
 bool Graph::addEdge(int fromId, int toId,
-                    const std::string &line, int timeMin) {
-  if (fromId < 0 || toId < 0) return false;
-  if (!stationMgr_.findById(fromId) || !stationMgr_.findById(toId))
+                    const std::string &line, int timeMin,
+                    const std::string &direction) {
+  if (fromId < 0 || toId < 0)
     return false;
-  addDirectedEdge(adj_, fromId, toId, line, timeMin);
+  if (!stationManager_.findById(fromId) || !stationManager_.findById(toId))
+    return false;
+  addDirectedEdge(adjacencyList_, fromId, toId, line, timeMin, direction);
   return true;
 }
 
-// ---------- 同线邻居 ----------
-// 返回与 id 在同一条线路上、由原始 Edge.csv 直接相连的前后站
 std::vector<int> Graph::sameLineNeighbors(int id) const {
   std::vector<int> res;
-  if (id < 0 || id >= (int)adj_.size())
+  if (id < 0 || id >= (int)adjacencyList_.size())
     return res;
-  const Station *me = stationMgr_.findById(id);
+  const Station *me = stationManager_.findById(id);
   if (!me)
     return res;
-  for (const auto &e : adj_[id]) {
+  for (const auto &e : adjacencyList_[id]) {
     if (e.line == me->line)
       res.push_back(e.to);
   }
   return res;
 }
 
-// ---------- 换乘邻居 ----------
 std::vector<int> Graph::transferNeighbors(int id) const {
   std::vector<int> res;
-  if (id < 0 || id >= (int)adj_.size())
+  if (id < 0 || id >= (int)adjacencyList_.size())
     return res;
-  const Station *me = stationMgr_.findById(id);
+  const Station *me = stationManager_.findById(id);
   if (!me)
     return res;
-  for (const auto &e : adj_[id]) {
-    if (e.line != me->line)
+  for (const auto &e : adjacencyList_[id]) {
+    if (e.line == "换乘")
       res.push_back(e.to);
   }
   return res;
 }
 
-// ---------- 站点所属线路集合 ----------
 std::vector<std::string> Graph::getLinesOfStation(int id) const {
   std::vector<std::string> res;
-  if (id < 0 || id >= (int)adj_.size())
+  if (id < 0 || id >= (int)adjacencyList_.size())
     return res;
   std::set<std::string> uniq;
-  for (const auto &e : adj_[id])
+  for (const auto &e : adjacencyList_[id])
     uniq.insert(e.line);
-  for (const auto &s : uniq)
-    res.push_back(s);
+  for (const auto &line : uniq)
+    res.push_back(line);
   return res;
 }
 
-// ---------- 调试打印 ----------
-void Graph::debugPrint() const {
-  for (size_t i = 0; i < adj_.size(); ++i) {
-    const Station *st = stationMgr_.findById((int)i);
+void Graph::debugPrint(std::ostream &output) const {
+  for (size_t i = 0; i < adjacencyList_.size(); ++i) {
+    const Station *st = stationManager_.findById((int)i);
     if (!st)
       continue;
-    std::cout << "[" << st->id << " " << st->name << " " << st->line << " "
-              << st->status << "] -> ";
-    for (const auto &e : adj_[i]) {
-      const Station *to = stationMgr_.findById(e.to);
-      std::cout << "(" << (to ? to->name : "?") << " " << e.line << " "
-                << e.time << "min) ";
+    output << "[" << st->id << " " << st->name << " " << st->line << " "
+           << st->status << "] -> ";
+    for (const auto &e : adjacencyList_[i]) {
+      const Station *to = stationManager_.findById(e.to);
+      output << "(" << (to ? to->name : "?") << " " << e.line << " "
+             << e.direction << " " << e.time << "min) ";
     }
-    std::cout << "\n";
+    output << "\n";
   }
 }

@@ -1,38 +1,30 @@
-// =============================================================
-//  station.cpp
-//  实现 StationManager 全部接口
-// =============================================================
 #include "station.h"
 #include <cctype>
+#include <iomanip>
 #include <fstream>
 #include <iostream>
+#include <ostream>
 #include <sstream>
 
-
-// 重建 id2idx_ / name2idx_ 索引（用于 load / addStation / removeStation 后同步）
-// 前向声明：在所有成员函数之前定义，避免在 loadFromCSV 等函数中引用不到
-static void rebuildStationsIndex(
-    const std::vector<Station>& stations,
-    std::unordered_map<int, size_t>& id2idx,
-    std::unordered_map<std::string, std::vector<size_t>>& name2idx) {
-  id2idx.clear();
-  name2idx.clear();
+namespace {
+void rebuildIndexes(const std::vector<Station> &stations,
+                    std::unordered_map<int, size_t> &indexById,
+                    std::unordered_map<std::string, std::vector<size_t>> &indexesByName) {
+  indexById.clear();
+  indexesByName.clear();
   for (size_t i = 0; i < stations.size(); ++i) {
-    id2idx[stations[i].id] = i;
-    name2idx[stations[i].name].push_back(i);
+    indexById[stations[i].id] = i;
+    indexesByName[stations[i].name].push_back(i);
   }
 }
+} // namespace
 
-
-// ---------- 静态工具：去除 UTF-8 BOM、首尾空白 ----------
 std::string StationManager::trim(const std::string &s) {
   size_t b = 0, e = s.size();
-  // 跳过 UTF-8 BOM
   if (e >= 3 && (unsigned char)s[0] == 0xEF && (unsigned char)s[1] == 0xBB &&
       (unsigned char)s[2] == 0xBF) {
     b = 3;
   }
-  // 跳过首部 ASCII 空白（含全角空格的高位字节也视为空白）
   auto isSpace = [](unsigned char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
   };
@@ -43,8 +35,6 @@ std::string StationManager::trim(const std::string &s) {
   return s.substr(b, e - b);
 }
 
-// ---------- 静态工具：解析一行 CSV ----------
-// 支持双引号包裹、半角逗号分隔；题目数据不复杂，但保留通用性
 std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
   std::vector<std::string> fields;
   std::string cur;
@@ -64,19 +54,6 @@ std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
   return fields;
 }
 
-// ---------- 内部：建立索引 ----------
-void rebuildIndexHelper(
-    std::vector<Station> &stations, std::unordered_map<int, size_t> &id2idx,
-    std::unordered_map<std::string, std::vector<size_t>> &name2idx) {
-  id2idx.clear();
-  name2idx.clear();
-  for (size_t i = 0; i < stations.size(); ++i) {
-    id2idx[stations[i].id] = i;
-    name2idx[stations[i].name].push_back(i);
-  }
-}
-
-// ---------- 加载 Station.csv ----------
 bool StationManager::loadFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -87,43 +64,7 @@ bool StationManager::loadFromCSV(const std::string &csvPath) {
   bool first = true;
   stations_.clear();
   while (std::getline(fin, line)) {
-    if (line.empty())
-      continue;
-    auto fields = parseCSVLine(line);
-    if (first) { // 跳过表头
-      first = false;
-      if (fields.size() >= 1 && fields[0] == "id")
-        continue;
-    }
-    if (fields.size() < 4)
-      continue;
-    Station st;
-    try {
-      st.id = std::stoi(fields[0]);
-    } catch (...) {
-      continue;
-    }
-    st.name = fields[1];
-    st.line = fields[2];
-    st.status = fields[3];
-    stations_.push_back(st);
-  }
-  fin.close();
-  rebuildStationsIndex(stations_, id2idx_, name2idx_);
-  return true;
-}
-
-// ---------- 加载 Station_init.csv ----------
-bool StationManager::loadInitFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
-  if (!fin.is_open()) {
-    std::cerr << "[Station] 无法打开初始化文件: " << csvPath << std::endl;
-    return false;
-  }
-  std::string line;
-  bool first = true;
-  initSnapshot_.clear();
-  while (std::getline(fin, line)) {
+    line = trim(line);
     if (line.empty())
       continue;
     auto fields = parseCSVLine(line);
@@ -132,34 +73,91 @@ bool StationManager::loadInitFromCSV(const std::string &csvPath) {
       if (fields.size() >= 1 && fields[0] == "id")
         continue;
     }
-    if (fields.size() < 4)
+    if (fields.size() != 4) {
+      std::cerr << "[Station] 站点数据字段数量错误: " << line << std::endl;
       continue;
+    }
     Station st;
     try {
       st.id = std::stoi(fields[0]);
     } catch (...) {
+      std::cerr << "[Station] 非法站点 id: " << fields[0] << std::endl;
       continue;
     }
     st.name = fields[1];
     st.line = fields[2];
     st.status = fields[3];
-    initSnapshot_.push_back(st);
+    if (st.name.empty() || st.line.empty() ||
+        (st.status != "开启" && st.status != "关闭")) {
+      std::cerr << "[Station] 非法站点记录: " << line << std::endl;
+      continue;
+    }
+    stations_.push_back(st);
+  }
+  fin.close();
+  rebuildIndexes(stations_, indexById_, indexesByName_);
+  return true;
+}
+
+bool StationManager::loadInitFromCSV(const std::string &csvPath) {
+  std::ifstream fin(csvPath);
+  if (!fin.is_open()) {
+    std::cerr << "[Station] 无法打开初始化文件: " << csvPath << std::endl;
+    return false;
+  }
+  std::string line;
+  bool first = true;
+  initialSnapshot_.clear();
+  while (std::getline(fin, line)) {
+    line = trim(line);
+    if (line.empty())
+      continue;
+    auto fields = parseCSVLine(line);
+    if (first) {
+      first = false;
+      if (fields.size() >= 1 && fields[0] == "id")
+        continue;
+    }
+    if (fields.size() != 4) {
+      std::cerr << "[Station] 初始化数据字段数量错误: " << line << std::endl;
+      continue;
+    }
+    Station st;
+    try {
+      st.id = std::stoi(fields[0]);
+    } catch (...) {
+      std::cerr << "[Station] 初始化数据 id 非法: " << fields[0] << std::endl;
+      continue;
+    }
+    st.name = fields[1];
+    st.line = fields[2];
+    st.status = fields[3];
+    initialSnapshot_.push_back(st);
   }
   fin.close();
   return true;
 }
 
-// ---------- 批量更新状态 ----------
 bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
-    std::cerr << "[Station] 无法打开批量更新文件: " << csvPath << std::endl;
+    std::cout << "更新文件不存在。\n";
     return false;
   }
+
+  struct PendingUpdate {
+    std::string name;
+    std::string line;
+    std::string status;
+  };
+
   std::string line;
   bool first = true;
+  int recordCount = 0;
   int success = 0, fail = 0;
+  std::vector<PendingUpdate> pending;
   while (std::getline(fin, line)) {
+    line = trim(line);
     if (line.empty())
       continue;
     auto fields = parseCSVLine(line);
@@ -170,85 +168,107 @@ bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
         continue;
     }
     if (fields.size() == 2) {
+      ++recordCount;
       int id = -1;
       try {
         id = std::stoi(fields[0]);
       } catch (...) {
-        ++fail;
-        continue;
+        std::cout << "更新文件格式错误，终止更新。\n";
+        return false;
       }
       const Station *s = findById(id);
       if (!s) {
+        std::cout << "未匹配到对应站点: " << fields[0] << "\n";
         ++fail;
         continue;
       }
       if (fields[1] != "开启" && fields[1] != "关闭") {
+        std::cout << "非法状态值: " << fields[1]
+                  << "，必须为“开启/关闭”。\n";
         ++fail;
         continue;
       }
-      if (setStationStatus(s->name, s->line, fields[1]))
-        ++success;
-      else
-        ++fail;
+      pending.push_back({s->name, s->line, fields[1]});
       continue;
     }
-    if (fields.size() >= 3) {
+    if (fields.size() == 3) {
+      ++recordCount;
       std::string name = fields[0];
       std::string ln = fields[1];
       std::string st = fields[2];
       if (st != "开启" && st != "关闭") {
+        std::cout << "非法状态值: " << st
+                  << "，必须为“开启/关闭”。\n";
         ++fail;
         continue;
       }
-      if (setStationStatus(name, ln, st))
-        ++success;
-      else
-        ++fail;
+      pending.push_back({name, ln, st});
       continue;
     }
-    ++fail;
+    std::cout << "更新文件格式错误，终止更新。\n";
+    return false;
   }
   fin.close();
+
+  if (recordCount == 0) {
+    std::cout << "未检测到有效更新记录。\n";
+    return false;
+  }
+
+  for (const auto &upd : pending) {
+    if (setStationStatus(upd.name, upd.line, upd.status))
+      ++success;
+    else {
+      std::cout << "未匹配到对应站点: " << upd.name
+                << " (" << upd.line << ")\n";
+      ++fail;
+    }
+  }
+
   std::cout << "[批量更新] 成功 " << success << " 条，失败 " << fail
             << " 条。\n";
-  return fail == 0;
+  return success > 0 && fail == 0;
 }
 
-// ---------- 模糊搜索 ----------
 std::vector<Station>
 StationManager::fuzzySearch(const std::string &keyword) const {
   std::vector<Station> res;
   if (keyword.empty())
     return res;
+  std::string loweredKeyword;
+  loweredKeyword.reserve(keyword.size());
+  for (unsigned char ch : keyword)
+    loweredKeyword.push_back((char)std::tolower(ch));
   for (const auto &st : stations_) {
-    if (st.name.find(keyword) != std::string::npos) {
+    std::string loweredName;
+    loweredName.reserve(st.name.size());
+    for (unsigned char ch : st.name)
+      loweredName.push_back((char)std::tolower(ch));
+    if (loweredName.find(loweredKeyword) != std::string::npos) {
       res.push_back(st);
     }
   }
   return res;
 }
 
-// ---------- 全名匹配 ----------
 std::vector<Station>
 StationManager::getStationsByName(const std::string &name) const {
   std::vector<Station> res;
-  auto it = name2idx_.find(name);
-  if (it != name2idx_.end()) {
+  auto it = indexesByName_.find(name);
+  if (it != indexesByName_.end()) {
     for (size_t i : it->second)
       res.push_back(stations_[i]);
   }
   return res;
 }
 
-// ---------- id 查询 ----------
 const Station *StationManager::findById(int id) const {
-  auto it = id2idx_.find(id);
-  if (it == id2idx_.end())
+  auto it = indexById_.find(id);
+  if (it == indexById_.end())
     return nullptr;
   return &stations_[it->second];
 }
 
-// ---------- 关闭站点列表 ----------
 std::vector<Station> StationManager::getClosedStations() const {
   std::vector<Station> res;
   for (const auto &st : stations_) {
@@ -258,7 +278,6 @@ std::vector<Station> StationManager::getClosedStations() const {
   return res;
 }
 
-// ---------- 同线站点列表 ----------
 std::vector<Station>
 StationManager::getStationsByLine(const std::string &line) const {
   std::vector<Station> res;
@@ -269,7 +288,6 @@ StationManager::getStationsByLine(const std::string &line) const {
   return res;
 }
 
-// ---------- 当前所有线路列表 ----------
 std::vector<std::string> StationManager::getAllLines() const {
   std::vector<std::string> lines;
   std::unordered_set<std::string> seen;
@@ -307,40 +325,35 @@ std::vector<std::string> StationManager::getAllLines() const {
   return lines;
 }
 
-// ---------- 切换单个站点状态 ----------
 bool StationManager::setStationStatus(const std::string &name,
                                       const std::string &line,
                                       const std::string &newStatus) {
-  auto it = name2idx_.find(name);
-  if (it == name2idx_.end())
+  auto it = indexesByName_.find(name);
+  if (it == indexesByName_.end())
     return false;
   for (size_t i : it->second) {
     if (stations_[i].line == line) {
       stations_[i].status = newStatus;
-      // 同步到初始快照：手动改的不动 initSnapshot_，避免被恢复覆盖
       return true;
     }
   }
   return false;
 }
 
-// ---------- 恢复初始状态 ----------
 void StationManager::restoreInitialStatus() {
-  if (initSnapshot_.empty()) {
+  if (initialSnapshot_.empty()) {
     std::cout << "[警告] 未加载 Station_init.csv，无法恢复。\n";
     return;
   }
-  // 把 initSnapshot_ 的 status 写回 stations_
-  for (const auto &init : initSnapshot_) {
-    auto it = id2idx_.find(init.id);
-    if (it != id2idx_.end()) {
-      stations_[it->second].status = init.status;
+  for (const auto &initial : initialSnapshot_) {
+    auto it = indexById_.find(initial.id);
+    if (it != indexById_.end()) {
+      stations_[it->second].status = initial.status;
     }
   }
   std::cout << "[恢复] 已将所有站点状态恢复为初始快照。\n";
 }
 
-// ---------- 保存当前状态到 CSV ----------
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
   std::ofstream fout(csvPath);
   if (!fout.is_open()) {
@@ -356,105 +369,106 @@ bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
   return true;
 }
 
-// ---------- 是否关闭 ----------
 bool StationManager::isClosed(int id) const {
-    auto it = id2idx_.find(id);
-    if (it == id2idx_.end()) return true;   // 不存在视为不可用
-    return stations_[it->second].status == "关闭";
-}
-
-// ============================================================
-//    §3.3 规范命名: showClosedStations / showStationsByLine
-// ============================================================
-void StationManager::showClosedStations(std::ostream& os) const {
-    auto closed = getClosedStations();
-    os << "  ==== 当前关闭的站点 ====\n";
-    if (closed.empty()) {
-        os << "  （无）\n";
-        return;
-    }
-    os << "  " << std::left
-       << std::setw(8)  << "ID"
-       << std::setw(20) << "站名"
-       << std::setw(10) << "线路"
-       << std::setw(8)  << "状态" << "\n";
-    os << "  " << std::string(46, '-') << "\n";
-    for (const auto& s : closed) {
-        os << "  " << std::left
-           << std::setw(8)  << s.id
-           << std::setw(20) << s.name
-           << std::setw(10) << s.line
-           << std::setw(8)  << s.status << "\n";
-    }
-    os << "  共 " << closed.size() << " 个关闭站点。\n";
-}
-
-void StationManager::showStationsByLine(const std::string& line, std::ostream& os) const {
-    auto sts = getStationsByLine(line);
-    os << "  ==== 线路 [" << line << "] 的所有站点 ====\n";
-    if (sts.empty()) {
-        os << "  （无）\n";
-        return;
-    }
-    os << "  " << std::left
-       << std::setw(8)  << "ID"
-       << std::setw(20) << "站名"
-       << std::setw(10) << "线路"
-       << std::setw(8)  << "状态" << "\n";
-    os << "  " << std::string(46, '-') << "\n";
-    for (const auto& s : sts) {
-        os << "  " << std::left
-           << std::setw(8)  << s.id
-           << std::setw(20) << s.name
-           << std::setw(10) << s.line
-           << std::setw(8)  << s.status << "\n";
-    }
-    os << "  共 " << sts.size() << " 个站点。\n";
-}
-
-// ============================================================
-//    §3.3 建站管理（可选加分）
-// ============================================================
-int StationManager::nextStationId() const {
-    int mx = 0;
-    for (const auto& s : stations_) if (s.id > mx) mx = s.id;
-    return mx + 1;
-}
-
-int StationManager::addStation(const std::string& name,
-                               const std::string& line,
-                               const std::string& status) {
-    // 1) 重名 + 同线路 视为已存在
-    auto same = getStationsByName(name);
-    for (const auto& s : same) {
-        if (s.line == line) return -1;
-    }
-    // 2) 分配新 id 并入库
-    Station st;
-    st.id     = nextStationId();
-    st.name   = name;
-    st.line   = line;
-    st.status = status;
-    stations_.push_back(st);
-    // 3) 重建索引
-    rebuildStationsIndex(stations_, id2idx_, name2idx_);
-    return st.id;
-}
-
-bool StationManager::removeStation(const std::string& name, const std::string& line) {
-    auto it = name2idx_.find(name);
-    if (it == name2idx_.end()) return false;
-    // 找到匹配 line 的下标
-    std::vector<size_t> toErase;
-    for (size_t idx : it->second) {
-        if (stations_[idx].line == line) toErase.push_back(idx);
-    }
-    if (toErase.empty()) return false;
-    // 从大到小删除
-    std::sort(toErase.rbegin(), toErase.rend());
-    for (size_t idx : toErase) {
-        stations_.erase(stations_.begin() + idx);
-    }
-    rebuildStationsIndex(stations_, id2idx_, name2idx_);
+  auto it = indexById_.find(id);
+  if (it == indexById_.end())
     return true;
+  return stations_[it->second].status == "关闭";
+}
+
+void StationManager::showClosedStations(std::ostream &output) const {
+  auto closed = getClosedStations();
+  output << "  ==== 当前关闭的站点 ====\n";
+  if (closed.empty()) {
+    output << "  （无）\n";
+    return;
+  }
+  output << "  " << std::left
+         << std::setw(8) << "ID"
+         << std::setw(20) << "站名"
+         << std::setw(10) << "线路"
+         << std::setw(8) << "状态" << "\n";
+  output << "  " << std::string(46, '-') << "\n";
+  for (const auto &station : closed) {
+    output << "  " << std::left
+           << std::setw(8) << station.id
+           << std::setw(20) << station.name
+           << std::setw(10) << station.line
+           << std::setw(8) << station.status << "\n";
+  }
+  output << "  共 " << closed.size() << " 个关闭站点。\n";
+}
+
+void StationManager::showStationsByLine(const std::string &line,
+                                        std::ostream &output) const {
+  auto stations = getStationsByLine(line);
+  output << "  ==== 线路 [" << line << "] 的所有站点 ====\n";
+  if (stations.empty()) {
+    output << "  （无）\n";
+    return;
+  }
+  output << "  " << std::left
+         << std::setw(8) << "ID"
+         << std::setw(20) << "站名"
+         << std::setw(10) << "线路"
+         << std::setw(8) << "状态" << "\n";
+  output << "  " << std::string(46, '-') << "\n";
+  for (const auto &station : stations) {
+    output << "  " << std::left
+           << std::setw(8) << station.id
+           << std::setw(20) << station.name
+           << std::setw(10) << station.line
+           << std::setw(8) << station.status << "\n";
+  }
+  output << "  共 " << stations.size() << " 个站点。\n";
+}
+
+int StationManager::nextStationId() const {
+  int maxId = 0;
+  for (const auto &station : stations_) {
+    if (station.id > maxId)
+      maxId = station.id;
+  }
+  return maxId + 1;
+}
+
+int StationManager::addStation(const std::string &name,
+                               const std::string &line,
+                               const std::string &status) {
+  auto sameNameStations = getStationsByName(name);
+  for (const auto &station : sameNameStations) {
+    if (station.line == line)
+      return -1;
+  }
+
+  Station station;
+  station.id = nextStationId();
+  station.name = name;
+  station.line = line;
+  station.status = status;
+  stations_.push_back(station);
+  rebuildIndexes(stations_, indexById_, indexesByName_);
+  return station.id;
+}
+
+bool StationManager::removeStation(const std::string &name,
+                                   const std::string &line) {
+  auto it = indexesByName_.find(name);
+  if (it == indexesByName_.end())
+    return false;
+
+  std::vector<size_t> indexesToErase;
+  for (size_t index : it->second) {
+    if (stations_[index].line == line)
+      indexesToErase.push_back(index);
+  }
+  if (indexesToErase.empty())
+    return false;
+
+  std::sort(indexesToErase.rbegin(), indexesToErase.rend());
+  for (size_t index : indexesToErase)
+    stations_.erase(stations_.begin() + index);
+
+  rebuildIndexes(stations_, indexById_, indexesByName_);
+  return true;
 }

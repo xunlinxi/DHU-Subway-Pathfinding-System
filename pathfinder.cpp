@@ -22,8 +22,11 @@ std::string Path::signature() const {
   s.reserve(nodes.size() * 8);
   for (size_t i = 0; i < nodes.size(); ++i) {
     s += std::to_string(nodes[i]);
-    if (i < lines.size())
+    if (i < lines.size()) {
       s += ":" + lines[i];
+      if (i < directions.size())
+        s += ":" + directions[i];
+    }
     s += ";";
   }
   return s;
@@ -81,14 +84,30 @@ std::string Path::toPrettyString(const StationManager &sm) const {
       prevName = nodeNames[i];
     }
   };
+  auto segmentLineLabel = [&](int startNodeIdx) {
+    if (startNodeIdx < 0 || startNodeIdx >= (int)nodeLines.size())
+      return std::string();
+    std::string base = nodeLines[startNodeIdx];
+    if (base == "4号线" && startNodeIdx < (int)lines.size() &&
+        startNodeIdx < (int)directions.size() &&
+        lines[startNodeIdx] == "4号线" &&
+        (directions[startNodeIdx] == "内圈" ||
+         directions[startNodeIdx] == "外圈")) {
+      return base + "·" + directions[startNodeIdx];
+    }
+    return base;
+  };
 
-  oss << nodeNames[0] << "[" << firstLine << "]：\n";
+  std::string headerLine = segmentLineLabel(0);
+  if (headerLine.empty())
+    headerLine = firstLine;
+  oss << nodeNames[0] << "[" << headerLine << "]：\n";
   int segmentStart = 0;
   for (int i = 1; i < (int)nodes.size(); ++i) {
     if (nodeLines[i] == nodeLines[i - 1])
       continue;
     appendSegment(segmentStart, i - 1);
-    oss << "\n站内换乘至[" << nodeLines[i] << "]\n";
+    oss << "\n站内换乘至[" << segmentLineLabel(i) << "]\n";
     segmentStart = i;
   }
   appendSegment(segmentStart, (int)nodes.size() - 1);
@@ -110,7 +129,8 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
   for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
     int u = p.nodes[i], v = p.nodes[i + 1];
     for (const auto &e : g.neighbors(u)) {
-      if (e.to == v && e.line == p.lines[i]) {
+      if (e.to == v &&
+          (e.line == p.lines[i] || isTransferEdgeLine(e.line))) {
         p.totalTime += e.time;
         break;
       }
@@ -119,9 +139,18 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
         p.lines[i] != p.lines[i - 1])
       ++p.transferCnt;
   }
-  // 实际经过站数 = 总节点数 - 因换乘拆分多算的节点
-  // 每次换乘会把同一个"换乘站"拆成两个 id 节点；因此要去掉冗余
-  p.actualStopCnt = p.stopCnt - p.transferCnt;
+  // 实际经过站数 = 总节点数 - 因换乘拆分多算的节点。
+  // 这里按“连续同名站点”去重，既覆盖普通换乘，也覆盖起点虚拟换乘
+  // （起点虚拟换乘不计入 transferCnt，但仍会多出一个同名节点）。
+  int duplicateTransferNodes = 0;
+  const StationManager &stationManager = g.stationManager();
+  for (int i = 1; i < (int)p.nodes.size(); ++i) {
+    const Station *prev = stationManager.findById(p.nodes[i - 1]);
+    const Station *cur = stationManager.findById(p.nodes[i]);
+    if (prev && cur && prev->name == cur->name)
+      ++duplicateTransferNodes;
+  }
+  p.actualStopCnt = p.stopCnt - duplicateTransferNodes;
 }
 
 // ============================================================
@@ -169,7 +198,8 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
                          const Graph &graph, const StationManager &sm,
                          const std::unordered_set<int> *blockedNodes = nullptr,
                          int bannedFrom = -1, int bannedTo = -1,
-                         const std::string &bannedLine = "") {
+                         const std::string &bannedLine = "",
+                         bool freeInitialTransfer = false) {
   const auto &adj = graph.adjList();
   const Station *startSt = sm.findById(startId);
   auto stationLineOf = [&](int id) {
@@ -219,6 +249,16 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       int sz = (int)revNodes.size();
       for (int i = 0; i < sz - 1; ++i)
         p.lines.push_back(revLines[sz - 2 - i]);
+      for (int i = 0; i < (int)p.nodes.size() - 1; ++i) {
+        std::string direction;
+        for (const auto &e : graph.neighbors(p.nodes[i])) {
+          if (e.to == p.nodes[i + 1] && e.line == p.lines[i]) {
+            direction = e.direction;
+            break;
+          }
+        }
+        p.directions.push_back(direction);
+      }
       // 统计
       PathFinder::finalizeStats(p, graph);
       // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
@@ -246,6 +286,8 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       std::string nextLine =
           isTransferEdgeLine(e.line) ? stationLineOf(e.to) : e.line;
       int addTrans = (cur.line != nextLine) ? 1 : 0;
+      if (freeInitialTransfer && cur.id == startId)
+        addTrans = 0;
       int newC1, newC2;
       if (goal == OptGoal::TIME) {
         newC1 = cur.cost1 + e.time;
@@ -269,14 +311,15 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
 
 // ---------- 对外封装 ----------
 Path PathFinder::dijkstraFull(int startId, int endId, OptGoal goal) {
-  return dijkstraCore(startId, endId, goal, graph_, sm_);
+  return dijkstraCore(startId, endId, goal, graph_, stationManager_, nullptr,
+                      -1, -1, "", true);
 }
 Path PathFinder::dijkstraConstrained(
     int startId, int endId, OptGoal goal,
     const std::unordered_set<int> &blockedNodes, int bannedFrom, int bannedTo,
     const std::string &bannedLine) {
-  return dijkstraCore(startId, endId, goal, graph_, sm_, &blockedNodes,
-                      bannedFrom, bannedTo, bannedLine);
+  return dijkstraCore(startId, endId, goal, graph_, stationManager_, &blockedNodes,
+                      bannedFrom, bannedTo, bannedLine, false);
 }
 
 // ============================================================
@@ -359,10 +402,14 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
         total.nodes.push_back(prev.nodes[j]);
       for (int j = 0; j < i; ++j)
         total.lines.push_back(prev.lines[j]);
+      for (int j = 0; j < i; ++j)
+        total.directions.push_back(prev.directions[j]);
       for (int j = 0; j < (int)spur.nodes.size(); ++j)
         total.nodes.push_back(spur.nodes[j]);
       for (int j = 0; j < (int)spur.lines.size(); ++j)
         total.lines.push_back(spur.lines[j]);
+      for (int j = 0; j < (int)spur.directions.size(); ++j)
+        total.directions.push_back(spur.directions[j]);
       PathFinder::finalizeStats(total, pf.graph());
       total.valid = true;
 
@@ -408,7 +455,7 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
   ImpactInfo info;
   info.name = name;
   info.line = line;
-  auto stations = sm_.getStationsByName(name);
+  auto stations = stationManager_.getStationsByName(name);
   int targetId = -1;
   for (const auto &s : stations) {
     if (s.line == line) {
