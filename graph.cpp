@@ -90,8 +90,8 @@ void Graph::buildTransferEdges() {
         const Station *sb = stationMgr_.findById(b);
         if (!sa || !sb)
           continue;
-        addDirectedEdge(adj_, a, b, sa->line, TRANSFER_TIME);
-        addDirectedEdge(adj_, b, a, sb->line, TRANSFER_TIME);
+        addDirectedEdge(adj_, a, b, "换乘", TRANSFER_TIME);
+        addDirectedEdge(adj_, b, a, "换乘", TRANSFER_TIME);
       }
     }
   }

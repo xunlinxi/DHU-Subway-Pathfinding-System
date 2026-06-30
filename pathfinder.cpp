@@ -8,6 +8,9 @@
 #include <map>
 #include <sstream>
 
+namespace {
+bool isTransferEdgeLine(const std::string &line) { return line == "换乘"; }
+}
 
 // ============================================================
 //                      Path 辅助方法
@@ -65,7 +68,7 @@ std::string Path::toPrettyString(const StationManager &sm) const {
   oss << nameOf(nodes[0]) << "[" << firstLine << "]：\n";
   int segmentStart = 0;
   for (int i = 1; i < (int)lines.size(); ++i) {
-    if (lines[i] == lines[i - 1])
+    if (lines[i] == lines[i - 1] || isTransferEdgeLine(lines[i]))
       continue;
     appendSegment(segmentStart, i - 1);
     oss << "\n站内换乘至[" << lines[i] << "]\n";
@@ -95,7 +98,8 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
         break;
       }
     }
-    if (i >= 1 && p.lines[i] != p.lines[i - 1])
+    if (i >= 1 && !isTransferEdgeLine(p.lines[i]) &&
+        p.lines[i] != p.lines[i - 1])
       ++p.transferCnt;
   }
   // 实际经过站数 = 总节点数 - 因换乘拆分多算的节点
@@ -151,6 +155,10 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
                          const std::string &bannedLine = "") {
   const auto &adj = graph.adjList();
   const Station *startSt = sm.findById(startId);
+  auto stationLineOf = [&](int id) {
+    const Station *s = sm.findById(id);
+    return s ? s->line : std::string("?");
+  };
   if (!startSt || sm.isClosed(startId))
     return Path{};
 
@@ -218,7 +226,9 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       if (blockedNodes && blockedNodes->count(e.to) && e.to != endId)
         continue;
 
-      int addTrans = (cur.line != e.line) ? 1 : 0;
+      std::string nextLine =
+          isTransferEdgeLine(e.line) ? stationLineOf(e.to) : e.line;
+      int addTrans = (cur.line != nextLine) ? 1 : 0;
       int newC1, newC2;
       if (goal == OptGoal::TIME) {
         newC1 = cur.cost1 + e.time;
@@ -227,13 +237,13 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
         newC1 = cur.cost1 + addTrans;
         newC2 = cur.cost2 + e.time;
       }
-      StateKey nk{e.to, e.line};
+      StateKey nk{e.to, nextLine};
       auto dit = dist.find(nk);
       if (dit == dist.end() || newC1 < dit->second.first ||
           (newC1 == dit->second.first && newC2 < dit->second.second)) {
         dist[nk] = {newC1, newC2};
         prev[nk] = curKey;
-        pq.push({newC1, newC2, e.to, e.line});
+        pq.push({newC1, newC2, e.to, nextLine});
       }
     }
   }
