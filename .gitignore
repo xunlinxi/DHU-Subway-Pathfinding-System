@@ -1,3 +1,10 @@
+# ===============================================
+#  .gitignore
+#  上海地铁路径规划与管理系统
+#  (基于 GitHub C++ 标准模板，追加本项目特殊项)
+# ===============================================
+
+# ---------- 编译产物 ----------
 # Prerequisites
 *.d
 
@@ -23,7 +30,6 @@
 *.dll
 *.so.*
 
-
 # Fortran module files
 *.mod
 *.smod
@@ -35,6 +41,7 @@
 *.lib
 
 # Executables
+metro.exe
 *.exe
 *.out
 *.app
@@ -67,3 +74,28 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# ---------- IDE / 编辑器 ----------
+.vscode/
+.idea/
+*.swo
+*~
+*.user
+.vs/
+
+# ---------- 个人文件 / 作业归档 (本项目特殊) ----------
+*.rar
+*.7z
+*.zip
+*.tar.gz
+个人任务.*
+个人作业.*
+
+# ---------- 系统临时文件 ----------
+Thumbs.db
+.DS_Store
+
+# ---------- C++ 编译中间文件 ----------
+*.i
+*.s
+cmake-build-*/
