@@ -2,6 +2,7 @@
 #pragma once
 
 #include <iosfwd>
+#include <iostream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -18,15 +19,10 @@ class StationManager {
 public:
   bool loadFromCSV(const std::string &csvPath);
   bool loadInitFromCSV(const std::string &csvPath);
-<<<<<<< HEAD
-  bool batchUpdateFromCSV(const std::string &csvPath);
-=======
   // 从 update_station_status.csv 批量更新
   // 支持两种格式：id,status 或 name,line,status
   // 返回成功更新的站点数量（-1 表示文件打开失败）
   int batchUpdateFromCSV(const std::string &csvPath);
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
-
   std::vector<Station> fuzzySearch(const std::string &keyword) const;
   std::vector<Station> getStationsByName(const std::string &name) const;
   const Station *findById(int id) const;
@@ -39,26 +35,23 @@ public:
   void restoreInitialStatus();
   bool saveCurrentToCSV(const std::string &csvPath) const;
 
-<<<<<<< HEAD
-  void showClosedStations(std::ostream &output) const;
-  void showStationsByLine(const std::string &line, std::ostream &output) const;
-=======
   // ---- §3.3 路径状态信息管理与可视化模块 ----
-  // 规范名: updateStationStatus / saveStationStatus / showClosedStations / showStationsByLine
-  // （与上方方法语义一致，仅为对齐规范命名）
-  bool   updateStationStatus(const std::string &csvPath) { return batchUpdateFromCSV(csvPath) >= 0; }
-  bool   saveStationStatus  (const std::string &csvPath) const { return saveCurrentToCSV(csvPath); }
-  void   showClosedStations(std::ostream &os = std::cout) const;
-  void   showStationsByLine(const std::string &line, std::ostream &os = std::cout) const;
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
-
+  // 规范名: updateStationStatus / saveStationStatus / showClosedStations /
+  // showStationsByLine （与上方方法语义一致，仅为对齐规范命名）
+  bool updateStationStatus(const std::string &csvPath) {
+    return batchUpdateFromCSV(csvPath) >= 0;
+  }
+  bool saveStationStatus(const std::string &csvPath) const {
+    return saveCurrentToCSV(csvPath);
+  }
+  void showClosedStations(std::ostream &os = std::cout) const;
+  void showStationsByLine(const std::string &line,
+                          std::ostream &os = std::cout) const;
   int addStation(const std::string &name, const std::string &line,
                  const std::string &status = "开启");
   bool removeStation(const std::string &name, const std::string &line);
   int nextStationId() const;
 
-<<<<<<< HEAD
-=======
   // ---- 运营管理扩展 ----
   // 换乘站整体关闭：关闭所有同名站点（跨线路），返回关闭数量
   int closeTransferStation(const std::string &name);
@@ -73,7 +66,6 @@ public:
 
   // ---- 辅助 ----
   // 解析一行 CSV（处理引号、逗号），返回字段数组
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   static std::vector<std::string> parseCSVLine(const std::string &line);
   static std::string trim(const std::string &s);
 
@@ -83,7 +75,6 @@ public:
 private:
   std::vector<Station> stations_; // 当前站点状态
   std::unordered_map<int, size_t> indexById_;
-  std::unordered_map<std::string, std::vector<size_t>>
-      indexesByName_;
+  std::unordered_map<std::string, std::vector<size_t>> indexesByName_;
   std::vector<Station> initialSnapshot_;
 };

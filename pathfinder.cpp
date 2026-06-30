@@ -5,6 +5,7 @@
 #include "pathfinder.h"
 #include <algorithm>
 #include <climits>
+#include <functional>
 #include <map>
 #include <sstream>
 #include <stack>
@@ -38,15 +39,15 @@ std::string Path::signature() const {
 // 起点 -> ... -> 换乘站
 // 站内换乘至[新线路]
 // 换乘站 -> ... -> 终点
-std::string Path::toPrettyString(const StationManager &sm) const {
+std::string Path::toPrettyString(const StationManager &stationManager) const {
   if (!valid || nodes.empty())
     return "[无效路径]";
   auto nameOf = [&](int id) {
-    const Station *s = sm.findById(id);
+    const Station *s = stationManager.findById(id);
     return s ? s->name : std::string("?");
   };
   auto lineOf = [&](int id) {
-    const Station *s = sm.findById(id);
+    const Station *s = stationManager.findById(id);
     return s ? s->line : std::string("?");
   };
   // 获取方向标签（仅4号线显示内圈/外圈）
@@ -109,33 +110,19 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     return base;
   };
 
-<<<<<<< HEAD
   std::string headerLine = segmentLineLabel(0);
   if (headerLine.empty())
     headerLine = firstLine;
-  oss << nodeNames[0] << "[" << headerLine << "]：\n";
-=======
-  oss << nodeNames[0] << "[" << firstLine;
-  if (!firstDir.empty())
-    oss << " (" << firstDir << ")";
-  oss << "]：\n";
-
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
-  int segmentStart = 0;
+  oss << nodeNames[0] << "[" << headerLine << "]：\n";  int segmentStart = 0;
   for (int i = 1; i < (int)nodes.size(); ++i) {
     if (nodeLines[i] == nodeLines[i - 1])
       continue;
     appendSegment(segmentStart, i - 1);
-<<<<<<< HEAD
-    oss << "\n站内换乘至[" << segmentLineLabel(i) << "]\n";
-=======
     std::string d = dirOf(i);
     oss << "\n站内换乘至[" << nodeLines[i];
     if (!d.empty())
       oss << " (" << d << ")";
-    oss << "]\n";
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
-    segmentStart = i;
+    oss << "]\n";    segmentStart = i;
   }
   appendSegment(segmentStart, (int)nodes.size() - 1);
   oss << "\n  总耗时: " << totalTime << " 分钟 | 换乘: " << transferCnt
@@ -222,18 +209,18 @@ struct PQState {
 } // namespace
 
 static Path dijkstraCore(int startId, int endId, OptGoal goal,
-                         const Graph &graph, const StationManager &sm,
+                         const Graph &graph, const StationManager &stationManager,
                          const std::unordered_set<int> *blockedNodes = nullptr,
                          int bannedFrom = -1, int bannedTo = -1,
                          const std::string &bannedLine = "",
                          bool freeInitialTransfer = false) {
   const auto &adj = graph.adjList();
-  const Station *startSt = sm.findById(startId);
+  const Station *startSt = stationManager.findById(startId);
   auto stationLineOf = [&](int id) {
-    const Station *s = sm.findById(id);
+    const Station *s = stationManager.findById(id);
     return s ? s->line : std::string("?");
   };
-  if (!startSt || sm.isClosed(startId))
+  if (!startSt || stationManager.isClosed(startId))
     return Path{};
 
   std::map<StateKey, std::pair<int, int>> dist;
@@ -318,7 +305,7 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
     for (const auto &e : adj[cur.id]) {
       if (cur.id == bannedFrom && e.to == bannedTo && e.line == bannedLine)
         continue;
-      if (sm.isClosed(e.to))
+      if (stationManager.isClosed(e.to))
         continue;
       if (blockedNodes && blockedNodes->count(e.to) && e.to != endId)
         continue;
@@ -448,12 +435,9 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
         total.nodes.push_back(spur.nodes[j]);
       for (int j = 0; j < (int)spur.lines.size(); ++j)
         total.lines.push_back(spur.lines[j]);
-<<<<<<< HEAD
-=======
       // 方向信息
       for (int j = 0; j < i && j < (int)prev.directions.size(); ++j)
         total.directions.push_back(prev.directions[j]);
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
       for (int j = 0; j < (int)spur.directions.size(); ++j)
         total.directions.push_back(spur.directions[j]);
       PathFinder::finalizeStats(total, pf.graph());
@@ -567,7 +551,7 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
 
   // 收集所有开放站点的 id
   std::unordered_set<int> openIds;
-  for (const auto &st : sm_.allStations()) {
+  for (const auto &st : stationManager_.allStations()) {
     if (st.status == "开启") {
       openIds.insert(st.id);
       ++ninfo.totalOpenStations;
@@ -592,7 +576,7 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
         comp.push_back(cur);
         if (cur >= (int)adj.size()) return;
         for (const auto &e : adj[cur]) {
-          if (sm_.isClosed(e.to)) continue;        // 跳过关闭站点
+          if (stationManager_.isClosed(e.to)) continue;        // 跳过关闭站点
           if (e.line == "换乘") continue;           // 换乘边不用于连通性（由同线边传递）
           if (visited.count(e.to)) continue;
           dfs(e.to, comp);
@@ -611,7 +595,7 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
       comp.push_back(u);
       if (u >= (int)adj.size()) continue;
       for (const auto &e : adj[u]) {
-        if (sm_.isClosed(e.to)) continue;
+        if (stationManager_.isClosed(e.to)) continue;
         if (visited.count(e.to)) continue;
         stk.push(e.to);
       }

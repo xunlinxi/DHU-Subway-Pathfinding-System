@@ -1,15 +1,18 @@
 #include "station.h"
 #include <cctype>
-#include <iomanip>
+#include <cstdio>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <ostream>
 #include <sstream>
 
+
 namespace {
-void rebuildIndexes(const std::vector<Station> &stations,
-                    std::unordered_map<int, size_t> &indexById,
-                    std::unordered_map<std::string, std::vector<size_t>> &indexesByName) {
+void rebuildIndexes(
+    const std::vector<Station> &stations,
+    std::unordered_map<int, size_t> &indexById,
+    std::unordered_map<std::string, std::vector<size_t>> &indexesByName) {
   indexById.clear();
   indexesByName.clear();
   for (size_t i = 0; i < stations.size(); ++i) {
@@ -138,20 +141,12 @@ bool StationManager::loadInitFromCSV(const std::string &csvPath) {
   return true;
 }
 
-<<<<<<< HEAD
-bool StationManager::batchUpdateFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
-  if (!fin.is_open()) {
-    std::cout << "更新文件不存在。\n";
-    return false;
-=======
 // ---------- 批量更新状态 ----------
 int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
     std::cerr << "[Station] 无法打开批量更新文件: " << csvPath << std::endl;
     return -1;
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   }
 
   struct PendingUpdate {
@@ -173,8 +168,8 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
     if (first) {
       first = false;
       if (!fields.empty() &&
-          (fields[0] == "name" || fields[0] == "id"
-           || fields[0] == "站点名称" || fields[0] == "站点ID")) {
+          (fields[0] == "name" || fields[0] == "id" ||
+           fields[0] == "站点名称" || fields[0] == "站点ID")) {
         // 跳过中英文表头
         continue;
       }
@@ -195,8 +190,7 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
         continue;
       }
       if (fields[1] != "开启" && fields[1] != "关闭") {
-        std::cout << "非法状态值: " << fields[1]
-                  << "，必须为“开启/关闭”。\n";
+        std::cout << "非法状态值: " << fields[1] << "，必须为“开启/关闭”。\n";
         ++fail;
         continue;
       }
@@ -209,8 +203,7 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
       std::string ln = fields[1];
       std::string st = fields[2];
       if (st != "开启" && st != "关闭") {
-        std::cout << "非法状态值: " << st
-                  << "，必须为“开启/关闭”。\n";
+        std::cout << "非法状态值: " << st << "，必须为“开启/关闭”。\n";
         ++fail;
         continue;
       }
@@ -231,19 +224,15 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
     if (setStationStatus(upd.name, upd.line, upd.status))
       ++success;
     else {
-      std::cout << "未匹配到对应站点: " << upd.name
-                << " (" << upd.line << ")\n";
+      std::cout << "未匹配到对应站点: " << upd.name << " (" << upd.line
+                << ")\n";
       ++fail;
     }
   }
 
   std::cout << "[批量更新] 成功 " << success << " 条，失败 " << fail
             << " 条。\n";
-<<<<<<< HEAD
   return success > 0 && fail == 0;
-=======
-  return success;
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
 }
 
 std::vector<Station>
@@ -371,17 +360,28 @@ void StationManager::restoreInitialStatus() {
 }
 
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
-  std::ofstream fout(csvPath);
+  // 原子写: 先写临时文件再改名, 避免半写导致 CSV 损坏
+  std::string tmpPath = csvPath + ".tmp";
+  std::ofstream fout(tmpPath, std::ios::binary);
   if (!fout.is_open()) {
-    std::cerr << "[Station] 无法写入文件: " << csvPath << std::endl;
+    std::cerr << "[Station] 无法写入文件: " << tmpPath << std::endl;
     return false;
   }
+  // 写 UTF-8 BOM, 防止 Windows 记事本 / 网页按 ANSI 解析造成中文乱码
+  const unsigned char bom[3] = {0xEF, 0xBB, 0xBF};
+  fout.write(reinterpret_cast<const char *>(bom), 3);
   fout << "id,name,line,status\n";
   for (const auto &st : stations_) {
     fout << st.id << "," << st.name << "," << st.line << "," << st.status
          << "\n";
   }
   fout.close();
+  // 用 std::rename 替换原文件 (Windows 上 rename 会覆盖)
+  std::remove(csvPath.c_str());
+  if (std::rename(tmpPath.c_str(), csvPath.c_str()) != 0) {
+    std::cerr << "[Station] 替换 CSV 失败: " << csvPath << std::endl;
+    return false;
+  }
   return true;
 }
 
@@ -399,18 +399,13 @@ void StationManager::showClosedStations(std::ostream &output) const {
     output << "  （无）\n";
     return;
   }
-  output << "  " << std::left
-         << std::setw(8) << "ID"
-         << std::setw(20) << "站名"
-         << std::setw(10) << "线路"
-         << std::setw(8) << "状态" << "\n";
+  output << "  " << std::left << std::setw(8) << "ID" << std::setw(20) << "站名"
+         << std::setw(10) << "线路" << std::setw(8) << "状态" << "\n";
   output << "  " << std::string(46, '-') << "\n";
   for (const auto &station : closed) {
-    output << "  " << std::left
-           << std::setw(8) << station.id
-           << std::setw(20) << station.name
-           << std::setw(10) << station.line
-           << std::setw(8) << station.status << "\n";
+    output << "  " << std::left << std::setw(8) << station.id << std::setw(20)
+           << station.name << std::setw(10) << station.line << std::setw(8)
+           << station.status << "\n";
   }
   output << "  共 " << closed.size() << " 个关闭站点。\n";
 }
@@ -423,18 +418,13 @@ void StationManager::showStationsByLine(const std::string &line,
     output << "  （无）\n";
     return;
   }
-  output << "  " << std::left
-         << std::setw(8) << "ID"
-         << std::setw(20) << "站名"
-         << std::setw(10) << "线路"
-         << std::setw(8) << "状态" << "\n";
+  output << "  " << std::left << std::setw(8) << "ID" << std::setw(20) << "站名"
+         << std::setw(10) << "线路" << std::setw(8) << "状态" << "\n";
   output << "  " << std::string(46, '-') << "\n";
   for (const auto &station : stations) {
-    output << "  " << std::left
-           << std::setw(8) << station.id
-           << std::setw(20) << station.name
-           << std::setw(10) << station.line
-           << std::setw(8) << station.status << "\n";
+    output << "  " << std::left << std::setw(8) << station.id << std::setw(20)
+           << station.name << std::setw(10) << station.line << std::setw(8)
+           << station.status << "\n";
   }
   output << "  共 " << stations.size() << " 个站点。\n";
 }
@@ -448,8 +438,7 @@ int StationManager::nextStationId() const {
   return maxId + 1;
 }
 
-int StationManager::addStation(const std::string &name,
-                               const std::string &line,
+int StationManager::addStation(const std::string &name, const std::string &line,
                                const std::string &status) {
   auto sameNameStations = getStationsByName(name);
   for (const auto &station : sameNameStations) {
@@ -493,19 +482,21 @@ bool StationManager::removeStation(const std::string &name,
 //    运营管理扩展：换乘站整体关闭
 // ============================================================
 bool StationManager::isTransferStation(const std::string &name) const {
-  auto it = name2idx_.find(name);
-  if (it == name2idx_.end()) return false;
+  auto it = indexesByName_.find(name);
+  if (it == indexesByName_.end())
+    return false;
   return it->second.size() > 1;
 }
 
 int StationManager::closeTransferStation(const std::string &name) {
-  auto it = name2idx_.find(name);
-  if (it == name2idx_.end()) {
+  auto it = indexesByName_.find(name);
+  if (it == indexesByName_.end()) {
     std::cout << "[换乘站关闭] 未找到站点 \"" << name << "\"。\n";
     return 0;
   }
   if (it->second.size() <= 1) {
-    std::cout << "[换乘站关闭] \"" << name << "\" 不是换乘站，仅有 1 条线路。\n";
+    std::cout << "[换乘站关闭] \"" << name
+              << "\" 不是换乘站，仅有 1 条线路。\n";
     return 0;
   }
   int cnt = 0;
@@ -513,8 +504,8 @@ int StationManager::closeTransferStation(const std::string &name) {
     stations_[idx].status = "关闭";
     ++cnt;
   }
-  std::cout << "[换乘站关闭] 已关闭 \"" << name << "\" 的所有 "
-            << cnt << " 个站点。\n";
+  std::cout << "[换乘站关闭] 已关闭 \"" << name << "\" 的所有 " << cnt
+            << " 个站点。\n";
   return cnt;
 }
 
@@ -529,8 +520,8 @@ int StationManager::closeLineStations(const std::string &line) {
       ++cnt;
     }
   }
-  std::cout << "[线路停运] \"" << line << "\" 已停运，关闭 "
-            << cnt << " 个站点。\n";
+  std::cout << "[线路停运] \"" << line << "\" 已停运，关闭 " << cnt
+            << " 个站点。\n";
   return cnt;
 }
 
@@ -542,8 +533,8 @@ int StationManager::openLineStations(const std::string &line) {
       ++cnt;
     }
   }
-  std::cout << "[线路恢复] \"" << line << "\" 已恢复，开启 "
-            << cnt << " 个站点。\n";
+  std::cout << "[线路恢复] \"" << line << "\" 已恢复，开启 " << cnt
+            << " 个站点。\n";
   return cnt;
 }
 

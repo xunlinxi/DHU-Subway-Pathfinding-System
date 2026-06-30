@@ -23,36 +23,27 @@ private:
 
   int fuzzyPickStation(const std::string &prompt);
 
-<<<<<<< HEAD
-  void stationMenu();
-  void timePathMenu();
-  void transferPathMenu();
-  void impactMenu();
-=======
   // ---------- 菜单 ----------
-    void mainMenu();
-    void stationMenu();    // 站点管理
-    void timeMenu();       // 所需时间最短路径规划（独立子菜单）
-    void transferMenu();   // 所需换乘次数最少路径规划（独立子菜单）
-    void buildMenu();      // §3.3 建站管理（可选加分）
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+  void mainMenu();
+  void stationMenu();    // 站点管理
+  void timeMenu();       // 所需时间最短路径规划（独立子菜单）
+  void transferMenu();   // 所需换乘次数最少路径规划（独立子菜单）
+  void buildMenu();      // §3.3 建站管理（可选加分）
 
+  // ---------- 业务 ----------
   void showClosedStations();
   void showLineStations();
+  void queryStations();
   void toggleOneStation();
   void batchUpdateFromCSV();
   void restoreInitial();
-  void runPathQuery(int mode);
+  void runImpactAnalysis();
+  void runPathQuery(int mode);  // 0=time, 1=transfer, 2=K-time, 3=K-transfer
+  void saveData();
 
-<<<<<<< HEAD
-  void addNewStation();
-  void removeExistingStation();
-  void addNewEdgeInteractive();
-=======
-    // ---- 运营管理扩展 ----
-    void closeTransferStationMenu();   // 换乘站整体关闭
-    void lineOutageMenu();             // 线路停运管理
-    void networkOutageMenu();          // 全网停运/恢复
-    void networkConnectivityMenu();    // 网络连通性分析
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+  // ---- 运营管理扩展 ----
+  void closeTransferStationMenu();   // 换乘站整体关闭
+  void lineOutageMenu();             // 线路停运管理
+  void networkOutageMenu();          // 全网停运/恢复
+  void networkConnectivityMenu();    // 网络连通性分析
 };

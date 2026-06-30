@@ -10,7 +10,6 @@
 #include <limits>
 #include <sstream>
 
-
 // ============================================================
 //                  通用 UI 工具
 // ============================================================
@@ -35,18 +34,28 @@ int Menu::readInt(const std::string &prompt, int defaultVal) {
   auto isSpace = [](unsigned char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
   };
-  while (b < e && isSpace((unsigned char)s[b])) ++b;
-  while (e > b && isSpace((unsigned char)s[e - 1])) --e;
+  while (b < e && isSpace((unsigned char)s[b]))
+    ++b;
+  while (e > b && isSpace((unsigned char)s[e - 1]))
+    --e;
   s = s.substr(b, e - b);
-  if (s.empty()) return defaultVal;
+  if (s.empty())
+    return defaultVal;
   // 严格校验: 只允许 [可选 +/-] + 全数字, 拒绝浮点数 / 字母 / 符号混杂
   size_t i = 0;
-  if (s[0] == '+' || s[0] == '-') ++i;
-  if (i == s.size()) return defaultVal;   // 仅符号无数字
+  if (s[0] == '+' || s[0] == '-')
+    ++i;
+  if (i == s.size())
+    return defaultVal; // 仅符号无数字
   for (; i < s.size(); ++i) {
-    if (!std::isdigit((unsigned char)s[i])) return defaultVal;
+    if (!std::isdigit((unsigned char)s[i]))
+      return defaultVal;
   }
-  try { return std::stoi(s); } catch (...) { return defaultVal; }
+  try {
+    return std::stoi(s);
+  } catch (...) {
+    return defaultVal;
+  }
 }
 std::string Menu::readLine(const std::string &prompt) {
   std::cout << prompt;
@@ -56,38 +65,47 @@ std::string Menu::readLine(const std::string &prompt) {
 }
 // 把 "1" "1号线" "1号" 都归一为 "X号线"
 static std::string normalizeLineName(const std::string &s) {
-  if (s.empty()) return s;
+  if (s.empty())
+    return s;
   // 全角数字 → 半角（用字符串匹配避免多字节警告）
   static const std::string fullDigits = "０１２３４５６７８９";
   std::string t;
-  for (size_t i = 0; i < s.size(); ) {
+  for (size_t i = 0; i < s.size();) {
     bool matched = false;
     for (int d = 0; d <= 9; ++d) {
       std::string full(1, (char)(0xEF));
       full += (char)(0x82);
       full += (char)(0x80 + d);
       // 这里用直接字节比较更稳妥
-      if (i + 3 <= s.size()
-          && (unsigned char)s[i]     == (unsigned char)fullDigits[d*3]
-          && (unsigned char)s[i + 1] == (unsigned char)fullDigits[d*3 + 1]
-          && (unsigned char)s[i + 2] == (unsigned char)fullDigits[d*3 + 2]) {
+      if (i + 3 <= s.size() &&
+          (unsigned char)s[i] == (unsigned char)fullDigits[d * 3] &&
+          (unsigned char)s[i + 1] == (unsigned char)fullDigits[d * 3 + 1] &&
+          (unsigned char)s[i + 2] == (unsigned char)fullDigits[d * 3 + 2]) {
         t.push_back('0' + d);
         i += 3;
         matched = true;
         break;
       }
     }
-    if (!matched) { t.push_back(s[i]); ++i; }
+    if (!matched) {
+      t.push_back(s[i]);
+      ++i;
+    }
   }
   // 已经是 X号线
-  if (t.find("号线") != std::string::npos) return t;
+  if (t.find("号线") != std::string::npos)
+    return t;
   // 纯数字 → 加 "号线"
   bool allDigit = !t.empty();
-  for (char c : t) if (!std::isdigit((unsigned char)c)) { allDigit = false; break; }
-  if (allDigit) return t + "号线";
+  for (char c : t)
+    if (!std::isdigit((unsigned char)c)) {
+      allDigit = false;
+      break;
+    }
+  if (allDigit)
+    return t + "号线";
   return t;
 }
-
 
 // ============================================================
 //    模糊搜索 + 换乘站二次选择（按运行效果图格式）
@@ -103,7 +121,8 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
     key = StationManager::trim(key);
     if (key == "exit")
       return -1;
-    if (key.empty()) return -1;
+    if (key.empty())
+      return -1;
 
     auto hits = stationManager_.fuzzySearch(key);
     if (hits.empty()) {
@@ -118,8 +137,8 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
 
     std::cout << "匹配的站点如下：\n";
     for (size_t i = 0; i < hits.size(); ++i) {
-      std::cout << (i + 1) << ". " << hits[i].name
-                << "（" << hits[i].line << "）\n";
+      std::cout << (i + 1) << ". " << hits[i].name << "（" << hits[i].line
+                << "）\n";
     }
     int idx = readInt("请输入对应编号选择站点：");
     if (idx <= 0 || (size_t)idx > hits.size()) {
@@ -129,7 +148,6 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
     return hits[idx - 1].id;
   }
 }
-
 
 // ============================================================
 //                      主菜单
@@ -142,24 +160,6 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
 void Menu::run() {
   while (true) {
     clearScreen();
-<<<<<<< HEAD
-    std::cout << "==== 地铁路径规划系统 ====\n";
-    std::cout << "1. 线路站点信息/运营状态管理\n";
-    std::cout << "2. 所需时间最短路径规划\n";
-    std::cout << "3. 所需换乘次数最少路径规划\n";
-    std::cout << "4. 退出系统\n";
-    int ch = readInt("请输入选项编号:");
-    switch (ch) {
-      case 1: stationMenu(); break;
-      case 2: timePathMenu(); break;
-      case 3: transferPathMenu(); break;
-      case 4:
-        std::cout << "退出系统\n";
-        return;
-      default:
-        std::cout << "输入无效，请输入数字选项1、2、3、4\n";
-        pause();
-=======
     std::cout << "========================================\n";
     std::cout << "  上海地铁路径规划与管理系统\n";
     std::cout << "  (Shanghai Metro Routing & Management)\n";
@@ -171,19 +171,24 @@ void Menu::run() {
     std::cout << "========================================\n";
     int ch = readInt("  请输入选项编号：");
     switch (ch) {
-      case 1: stationMenu();        break;
-      case 2: timeMenu();           break;
-      case 3: transferMenu();       break;
-      case 4:
-        std::cout << "  感谢使用，再见！\n";
-        return;
-      default:
-        std::cout << "  [提示] 输入无效，请输入数字选项1、2、3、4。\n"; pause();
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    case 1:
+      stationMenu();
+      break;
+    case 2:
+      timeMenu();
+      break;
+    case 3:
+      transferMenu();
+      break;
+    case 4:
+      std::cout << "  感谢使用，再见！\n";
+      return;
+    default:
+      std::cout << "  [提示] 输入无效，请输入数字选项1、2、3、4。\n";
+      pause();
     }
   }
 }
-
 
 // ============================================================
 //   站点管理子菜单（按运行效果图 §3.8.1 + 运营管理扩展）
@@ -201,20 +206,6 @@ void Menu::stationMenu() {
     std::cout << "3. 显示当前关闭站点\n";
     std::cout << "4. 恢复所有站点初始状态\n";
     std::cout << "5. 显示线路站点信息\n";
-<<<<<<< HEAD
-    std::cout << "6. 返回上级菜单\n";
-    int ch = readInt("请输入选项编号:");
-    switch (ch) {
-      case 1: batchUpdateFromCSV();   pause(); break;
-      case 2: toggleOneStation();     pause(); break;
-      case 3: showClosedStations();   pause(); break;
-      case 4: restoreInitial();       pause(); break;
-      case 5: showLineStations();     pause(); break;
-      case 6: return;
-      default:
-        std::cout << "输入无效，请输入数字选项1、2、3、4、5、6\n";
-        pause();
-=======
     std::cout << "6. 换乘站整体关闭管理\n";
     std::cout << "7. 线路停运管理\n";
     std::cout << "8. 全网停运/恢复管理\n";
@@ -224,45 +215,69 @@ void Menu::stationMenu() {
     std::cout << "12. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
-      case 1:  batchUpdateFromCSV();       pause(); break;
-      case 2:  toggleOneStation();         pause(); break;
-      case 3:  showClosedStations();       pause(); break;
-      case 4:  restoreInitial();           pause(); break;
-      case 5:  showLineStations();         pause(); break;
-      case 6:  closeTransferStationMenu(); pause(); break;
-      case 7:  lineOutageMenu();           pause(); break;
-      case 8:  networkOutageMenu();        pause(); break;
-      case 9:  runImpactAnalysis();        pause(); break;
-      case 10: networkConnectivityMenu();  pause(); break;
-      case 11: saveData();                 pause(); break;
-      case 12: return;
-      default: std::cout << "  [提示] 无效选项。\n"; pause();
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    case 1:
+      batchUpdateFromCSV();
+      pause();
+      break;
+    case 2:
+      toggleOneStation();
+      pause();
+      break;
+    case 3:
+      showClosedStations();
+      pause();
+      break;
+    case 4:
+      restoreInitial();
+      pause();
+      break;
+    case 5:
+      showLineStations();
+      pause();
+      break;
+    case 6:
+      closeTransferStationMenu();
+      pause();
+      break;
+    case 7:
+      lineOutageMenu();
+      pause();
+      break;
+    case 8:
+      networkOutageMenu();
+      pause();
+      break;
+    case 9:
+      runImpactAnalysis();
+      pause();
+      break;
+    case 10:
+      networkConnectivityMenu();
+      pause();
+      break;
+    case 11:
+      saveData();
+      pause();
+      break;
+    case 12:
+      return;
+    default:
+      std::cout << "  [提示] 无效选项。\n";
+      pause();
     }
   }
 }
-
 
 // ---------- 1) 批量更新 ----------
 void Menu::batchUpdateFromCSV() {
   clearScreen();
   std::cout << "--- 批量更新站点状态 ---\n";
-<<<<<<< HEAD
-  std::string path = readLine(
-      "  请输入 CSV 路径（直接回车使用 data/update_station_status.csv）: ");
-  if (path.empty()) path = "data/update_station_status.csv";
-  bool ok = stationManager_.batchUpdateFromCSV(path);
-  if (ok && !stationManager_.saveCurrentToCSV("data/Station.csv"))
-    std::cout << "目标文件不存在。\n";
-  if (ok)
-    std::cout << "  [完成] 批量更新成功。\n";
-  else
-    std::cout << "  [提示] 批量更新结束，请检查上方错误信息。\n";
-=======
   std::cout << "  [提示] 支持两种格式：id,status 或 name,line,status\n";
-  std::string input = readLine(
-      "  请输入 CSV 路径（直接回车使用 data/update_station_status.csv，也可直接输入一条记录）: ");
-  if (input.empty()) input = "data/update_station_status.csv";
+  std::string input =
+      readLine("  请输入 CSV 路径（直接回车使用 "
+               "data/update_station_status.csv，也可直接输入一条记录）: ");
+  if (input.empty())
+    input = "data/update_station_status.csv";
 
   auto fields = StationManager::parseCSVLine(input);
   bool handled = false;
@@ -270,11 +285,11 @@ void Menu::batchUpdateFromCSV() {
   if (fields.size() == 2) {
     try {
       int id = std::stoi(StationManager::trim(fields[0]));
-      const Station *s = sm_.findById(id);
+      const Station *s = stationManager_.findById(id);
       std::string status = StationManager::trim(fields[1]);
       if (s && (status == "开启" || status == "关闭")) {
         handled = true;
-        ok = sm_.setStationStatus(s->name, s->line, status);
+        ok = stationManager_.setStationStatus(s->name, s->line, status);
       }
     } catch (...) {
     }
@@ -285,71 +300,59 @@ void Menu::batchUpdateFromCSV() {
     if (!name.empty() && !line.empty() &&
         (status == "开启" || status == "关闭")) {
       handled = true;
-      ok = sm_.setStationStatus(name, line, status);
+      ok = stationManager_.setStationStatus(name, line, status);
     }
   }
 
   if (handled) {
-    if (ok)
+    if (ok) {
       std::cout << "  [完成] 单条站点状态更新成功。\n";
-    else
-      std::cout << "  [失败] 单条站点状态更新失败，请检查站点名、线路名或状态值。\n";
+      // 实时同步到 CSV
+      stationManager_.saveCurrentToCSV("data/Station.csv");
+    } else
+      std::cout
+          << "  [失败] 单条站点状态更新失败，请检查站点名、线路名或状态值。\n";
     return;
   }
 
-  if (sm_.batchUpdateFromCSV(input) >= 0)
-    std::cout << "  [完成] 批量更新已执行。\n";
-  else
+  int nUpdated = stationManager_.batchUpdateFromCSV(input);
+  if (nUpdated >= 0) {
+    std::cout << "  [完成] 批量更新已执行（" << nUpdated << " 条）。\n";
+    if (nUpdated > 0)
+      stationManager_.saveCurrentToCSV("data/Station.csv");
+  } else
     std::cout << "  [失败] 更新文件不存在或无法打开。\n";
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
 }
-
 
 // ---------- 2) 手工更新站点状态（支持循环操作 + 统计）----------
 void Menu::toggleOneStation() {
   clearScreen();
   std::cout << "--- 手工更新站点状态 ---\n";
-<<<<<<< HEAD
-  int id = fuzzyPickStation("请输入待修改站点关键词（exit退出）：");
-  if (id < 0) return;
-  const Station *s = stationManager_.findById(id);
-  if (!s) return;
-  std::cout << s->name << "," << s->line << "," << s->status << "\n";
-  std::cout << "请输入站点状态（开启/关闭）>";
-  std::string newSt;
-  std::getline(std::cin, newSt);
-  if (newSt != "开启" && newSt != "关闭") {
-    std::cout << "状态非法，必须为“开启”或“关闭”。\n";
-    return;
-  }
-  if (stationManager_.setStationStatus(s->name, s->line, newSt)) {
-    stationManager_.saveCurrentToCSV("data/Station.csv");
-    std::cout << "修改站点: " << s->name << " (" << s->line
-              << ") -> 状态: " << newSt << "\n";
-    std::cout << "1个站点的状态修改完成。\n";
-  } else {
-    std::cout << "未匹配到对应站点。\n";
-=======
   int modifiedCnt = 0;
   while (true) {
-    int id = fuzzyPickStation("  请输入待修改站点关键词（exit退出）：");
-    if (id < 0) break;
-    const Station *s = sm_.findById(id);
-    if (!s) continue;
-    std::cout << "  " << s->name << "," << s->line << "," << s->status << "\n";
-    std::string newSt = readLine("  请输入站点状态（开启/关闭）> ");
+    int id = fuzzyPickStation("请输入待修改站点关键词（exit退出）：");
+    if (id < 0)
+      break;
+    const Station *s = stationManager_.findById(id);
+    if (!s)
+      continue;
+    std::cout << s->name << "," << s->line << "," << s->status << "\n";
+    std::cout << "请输入站点状态（开启/关闭）>";
+    std::string newSt;
+    std::getline(std::cin, newSt);
     if (newSt != "开启" && newSt != "关闭") {
-      std::cout << "  [提示] 状态只能是 开启/关闭。\n";
+      std::cout << "状态非法，必须为“开启”或“关闭”。\n";
       continue;
     }
-    if (sm_.setStationStatus(s->name, s->line, newSt)) {
-      std::cout << "  修改站点: " << s->name << " (" << s->line
+    if (stationManager_.setStationStatus(s->name, s->line, newSt)) {
+      // 实时同步到 CSV
+      stationManager_.saveCurrentToCSV("data/Station.csv");
+      std::cout << "修改站点: " << s->name << " (" << s->line
                 << ") -> 状态: " << newSt << "\n";
       ++modifiedCnt;
     } else {
-      std::cout << "  [失败] 状态切换失败。\n";
+      std::cout << "未匹配到对应站点。\n";
     }
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   }
   if (modifiedCnt > 0)
     std::cout << modifiedCnt << " 个站点的状态修改完成。\n";
@@ -357,49 +360,33 @@ void Menu::toggleOneStation() {
     std::cout << "  没有修改任何站点。\n";
 }
 
-
 // ---------- 3) 显示当前关闭站点 ----------
 void Menu::showClosedStations() {
   clearScreen();
   std::cout << "--- 当前关闭的站点 ---\n";
   auto closed = stationManager_.getClosedStations();
   if (closed.empty()) {
-<<<<<<< HEAD
-    std::cout << "所有站点均处于开放状态。\n";
-=======
     std::cout << "  所有站点均处于开放状态。\n";
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
     return;
   }
   for (size_t i = 0; i < closed.size(); ++i) {
-    std::cout << "  " << (i + 1) << ". " << closed[i].name
-              << " (" << closed[i].line << ") - " << closed[i].status << "\n";
+    std::cout << "  " << (i + 1) << ". " << closed[i].name << " ("
+              << closed[i].line << ") - " << closed[i].status << "\n";
   }
   std::cout << "  共 " << closed.size() << " 个关闭站点。\n";
 }
-
 
 // ---------- 4) 恢复所有站点初始状态 (Y/N 确认) ----------
 void Menu::restoreInitial() {
   clearScreen();
   std::cout << "--- 恢复所有站点初始状态 ---\n";
-<<<<<<< HEAD
   std::string confirm = readLine("您确定要恢复所有站点的初始状态?（Y/N）");
   if (confirm == "Y" || confirm == "y") {
     stationManager_.restoreInitialStatus();
     stationManager_.saveCurrentToCSV("data/Station.csv");
     std::cout << "已成功恢复所有站点至初始状态。\n";
-=======
-  std::string answer = readLine("  您确定要恢复所有站点的初始状态?（Y/N）");
-  if (answer == "Y" || answer == "y" || answer == "是") {
-    sm_.restoreInitialStatus();
-    std::cout << "  已成功恢复至初始状态。\n";
-  } else {
-    std::cout << "  已取消恢复操作。\n";
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   }
 }
-
 
 // ---------- 5) 显示线路站点信息（按运行效果图 §3.8.1）----------
 void Menu::showLineStations() {
@@ -437,9 +424,10 @@ void Menu::showLineStations() {
     if (isTransfer) {
       std::cout << " (换乘 ";
       for (size_t k = 0; k < same.size(); ++k) {
-        if (same[k].line == s.line) continue;
+        if (same[k].line == s.line)
+          continue;
         std::cout << same[k].line;
-        break;        // 仅显示一个换乘线路，简洁
+        break; // 仅显示一个换乘线路，简洁
       }
       std::cout << ")";
     }
@@ -449,15 +437,13 @@ void Menu::showLineStations() {
   }
 }
 
-
 // ============================================================
 //   时间最优子菜单（独立二级菜单，按 §3.8 运行效果图）
 //   1. 单条所需时间最短路径
 //   2. 3条所需时间最短路径
 //   3. 返回上级菜单
 // ============================================================
-<<<<<<< HEAD
-void Menu::timePathMenu() {
+void Menu::timeMenu() {
   while (true) {
     clearScreen();
     std::cout << "-- 所需时间最短路径规划 --\n";
@@ -465,41 +451,24 @@ void Menu::timePathMenu() {
     std::cout << "2. 3条所需时间最短路径\n";
     std::cout << "3. 返回上级菜单\n";
     int ch = readInt("请输入选项编号:");
-=======
-void Menu::timeMenu() {
-  while (true) {
-    clearScreen();
-    std::cout << "--- 所需时间最短路径规划 ---\n";
-    std::cout << "1. 单条所需时间最短路径\n";
-    std::cout << "2. 3条所需时间最短路径\n";
-    std::cout << "3. 返回上级菜单\n";
-    int ch = readInt("请输入选项编号：");
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
     switch (ch) {
-      case 1: runPathQuery(0); pause(); break;
-      case 2: runPathQuery(2); pause(); break;
-      case 3: return;
-<<<<<<< HEAD
-      default:
-        std::cout << "输入无效，请输入数字选项1、2、3\n";
-        pause();
-=======
-      default: std::cout << "  [提示] 无效选项。\n"; pause();
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    case 1:
+      runPathQuery(0);
+      pause();
+      break;
+    case 2:
+      runPathQuery(2);
+      pause();
+      break;
+    case 3:
+      return;
+    default:
+      std::cout << "输入无效，请输入数字选项1、2、3\n";
+      pause();
     }
   }
 }
 
-<<<<<<< HEAD
-void Menu::transferPathMenu() {
-  while (true) {
-    clearScreen();
-    std::cout << "-- 所需换乘次数最少路径规划 --\n";
-    std::cout << "1. 单条换乘次数最少路径\n";
-    std::cout << "2. 3条换乘次数最少路径\n";
-    std::cout << "3. 返回主菜单\n";
-    int ch = readInt("请输入选项编号:");
-=======
 // ============================================================
 //   换乘最优子菜单（独立二级菜单，按 §3.8 运行效果图）
 //   1. 单条换乘次数最少路径
@@ -514,79 +483,46 @@ void Menu::transferMenu() {
     std::cout << "2. 3条换乘次数最少路径\n";
     std::cout << "3. 返回主菜单\n";
     int ch = readInt("请输入选项编号：");
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
     switch (ch) {
-      case 1: runPathQuery(1); pause(); break;
-      case 2: runPathQuery(3); pause(); break;
-      case 3: return;
-<<<<<<< HEAD
-      default:
-        std::cout << "输入无效，请输入数字选项1、2、3\n";
-        pause();
-=======
-      default: std::cout << "  [提示] 无效选项。\n"; pause();
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    case 1:
+      runPathQuery(1);
+      pause();
+      break;
+    case 2:
+      runPathQuery(3);
+      pause();
+      break;
+    case 3:
+      return;
+    default:
+      std::cout << "输入无效，请输入数字选项1、2、3\n";
+      pause();
     }
   }
 }
 
-
 // ---------- 路径查询核心 ----------
 void Menu::runPathQuery(int mode) {
   clearScreen();
-<<<<<<< HEAD
   const char *titles[] = {"单条所需时间最短路径规划",
-                          "单条换乘次数最少路径规划",
-                          "3条所需时间最短路径规划",
+                          "单条换乘次数最少路径规划", "3条所需时间最短路径规划",
                           "3条换乘次数最少路径规划"};
-=======
-  const char *titles[] = {"单条所需时间最短路径",
-                          "单条换乘次数最少路径",
-                          "3 条所需时间最短路径",
-                          "3 条换乘次数最少路径"};
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   std::cout << "--- " << titles[mode] << " ---\n";
 
   int sId = fuzzyPickStation("请输入起点站关键词：");
-  if (sId < 0) return;
+  if (sId < 0)
+    return;
   int eId = fuzzyPickStation("请输入终点站关键词：");
-  if (eId < 0) return;
+  if (eId < 0)
+    return;
   if (sId == eId) {
-<<<<<<< HEAD
-    std::cout << "起点和终点相同，无需进行路径规划。\n";
+    std::cout << "  [提示] 起点和终点相同，无需进行路径规划。\n";
     return;
   }
   const Station *ss = stationManager_.findById(sId);
   const Station *es = stationManager_.findById(eId);
-  if (ss && ss->status == "关闭") {
-    std::cout << "起点：" << ss->name << "（" << ss->line
-              << "）已关闭，无法进行路径规划。\n";
+  if (!ss || !es)
     return;
-  }
-  if (es && es->status == "关闭") {
-    std::cout << "终点：" << es->name << "（" << es->line
-              << "）已关闭，无法进行路径规划。\n";
-    return;
-  }
-
-  if (mode == 0) {
-    Path p = pathFinder_.findBestByTime(sId, eId);
-    if (!p.valid) { std::cout << "未找到可达路径。\n"; return; }
-    std::cout << p.toPrettyString(stationManager_) << "\n";
-  } else if (mode == 1) {
-    Path p = pathFinder_.findBestByTransfer(sId, eId);
-    if (!p.valid) { std::cout << "未找到可达路径。\n"; return; }
-    std::cout << p.toPrettyString(stationManager_) << "\n";
-  } else if (mode == 2) {
-    auto paths = pathFinder_.findKShortestByTime(sId, eId, 3);
-    if (paths.empty()) { std::cout << "未找到可达路径。\n"; return; }
-=======
-    std::cout << "  [提示] 起点和终点相同，无需进行路径规划。\n";
-    return;
-  }
-  const Station *ss = sm_.findById(sId);
-  const Station *es = sm_.findById(eId);
-  if (!ss || !es) return;
 
   // 前置检查起点/终点是否关闭
   if (ss->status == "关闭") {
@@ -604,39 +540,44 @@ void Menu::runPathQuery(int mode) {
 
   if (mode == 0) {
     // 单条时间最短
-    Path p = pf_.findBestByTime(sId, eId);
-    if (!p.valid) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
-    std::cout << p.toPrettyString(sm_) << "\n";
+    Path p = pathFinder_.findBestByTime(sId, eId);
+    if (!p.valid) {
+      std::cout << "  [提示] 未找到可达路径。\n";
+      return;
+    }
+    std::cout << p.toPrettyString(stationManager_) << "\n";
   } else if (mode == 1) {
     // 单条换乘最少
-    Path p = pf_.findBestByTransfer(sId, eId);
-    if (!p.valid) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
-    std::cout << p.toPrettyString(sm_) << "\n";
+    Path p = pathFinder_.findBestByTransfer(sId, eId);
+    if (!p.valid) {
+      std::cout << "  [提示] 未找到可达路径。\n";
+      return;
+    }
+    std::cout << p.toPrettyString(stationManager_) << "\n";
   } else if (mode == 2) {
     // K 条时间最短
-    auto paths = pf_.findKShortestByTime(sId, eId, 3);
-    if (paths.empty()) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    auto paths = pathFinder_.findKShortestByTime(sId, eId, 3);
+    if (paths.empty()) {
+      std::cout << "  [提示] 未找到可达路径。\n";
+      return;
+    }
     for (size_t i = 0; i < paths.size(); ++i) {
       std::cout << "---- 候选 " << (i + 1) << " ----\n"
                 << paths[i].toPrettyString(stationManager_) << "\n";
     }
   } else if (mode == 3) {
-<<<<<<< HEAD
-    auto paths = pathFinder_.findKShortestByTransfer(sId, eId, 3);
-    if (paths.empty()) { std::cout << "未找到可达路径。\n"; return; }
-=======
     // K 条换乘最少
-    auto paths = pf_.findKShortestByTransfer(sId, eId, 3);
-    if (paths.empty()) { std::cout << "  [提示] 未找到可达路径。\n"; return; }
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
+    auto paths = pathFinder_.findKShortestByTransfer(sId, eId, 3);
+    if (paths.empty()) {
+      std::cout << "  [提示] 未找到可达路径。\n";
+      return;
+    }
     for (size_t i = 0; i < paths.size(); ++i) {
       std::cout << "---- 候选 " << (i + 1) << " ----\n"
                 << paths[i].toPrettyString(stationManager_) << "\n";
     }
   }
 }
-
 
 // ============================================================
 //   受关闭站点影响站点分析（按运行效果图 §3.8.1 / §3.8.3）
@@ -645,9 +586,11 @@ void Menu::runImpactAnalysis() {
   clearScreen();
   std::cout << "--- 受关闭站点影响站点分析 ---\n";
   int id = fuzzyPickStation("  请输入待分析站点关键字：");
-  if (id < 0) return;
+  if (id < 0)
+    return;
   const Station *s = stationManager_.findById(id);
-  if (!s) return;
+  if (!s)
+    return;
 
   auto info = pathFinder_.analyzeImpact(s->name, s->line);
 
@@ -658,7 +601,8 @@ void Menu::runImpactAnalysis() {
   if (info.affectedLines.empty()) {
     std::cout << "  (无)\n";
   } else {
-    for (auto &ln : info.affectedLines) std::cout << "  " << ln << "\n";
+    for (auto &ln : info.affectedLines)
+      std::cout << "  " << ln << "\n";
   }
 
   std::cout << "\n直接影响相邻站点：\n";
@@ -668,8 +612,8 @@ void Menu::runImpactAnalysis() {
     std::unordered_set<int> isolated(info.noAdj.begin(), info.noAdj.end());
     for (int nid : info.sameLineAdj) {
       const Station *ns = stationManager_.findById(nid);
-      std::cout << "  " << (ns ? ns->name : "?")
-                << "(" << (ns ? ns->line : "?") << ")";
+      std::cout << "  " << (ns ? ns->name : "?") << "(" << (ns ? ns->line : "?")
+                << ")";
       if (isolated.count(nid))
         std::cout << " [关闭后将成为无相邻站点]";
       std::cout << "\n";
@@ -679,80 +623,31 @@ void Menu::runImpactAnalysis() {
   std::cout << "\n影响等级：" << info.level << "\n";
 }
 
-
-<<<<<<< HEAD
-void Menu::addNewStation() {
-  clearScreen();
-  std::cout << "--- 添加新站点 ---\n";
-  std::string name = readLine("  请输入新站点名: ");
-  if (name.empty()) { std::cout << "  [取消] 名称不能为空。\n"; return; }
-  std::string line = readLine("  请输入所属线路: ");
-  line = normalizeLineName(line);
-  std::string st   = readLine("  状态 (开启/关闭，默认开启): ");
-  if (st.empty()) st = "开启";
-  if (st != "开启" && st != "关闭") {
-    std::cout << "  [错误] 状态只能是 开启/关闭。\n"; return;
-  }
-  int newId = stationManager_.addStation(name, line, st);
-  if (newId < 0) {
-    std::cout << "  [失败] 已存在同名+同线路的站点。\n";
-    return;
-  }
-  std::cout << "  [成功] 已添加站点 ID=" << newId
-            << " (" << name << " / " << line << " / " << st << ")\n";
-}
-void Menu::removeExistingStation() {
-  clearScreen();
-  std::cout << "--- 删除站点 ---\n";
-  int id = fuzzyPickStation("  请输入要删除的站点关键字：");
-  if (id < 0) return;
-  const Station *s = stationManager_.findById(id);
-  if (!s) return;
-  int confirm = readInt("  确认删除? 1=是 0=否 : ", 0);
-  if (confirm == 1) {
-    if (stationManager_.removeStation(s->name, s->line))
-      std::cout << "  [成功] 站点已删除。\n";
-    else
-      std::cout << "  [失败] 删除失败。\n";
-  }
-}
-void Menu::addNewEdgeInteractive() {
-  clearScreen();
-  std::cout << "--- 手动添加一条边 ---\n";
-  int u = fuzzyPickStation("  请输入起点站: ");
-  if (u < 0) return;
-  int v = fuzzyPickStation("  请输入终点站: ");
-  if (v < 0) return;
-  std::string line = readLine("  请输入所属线路: ");
-  line = normalizeLineName(line);
-  if (line.empty()) { std::cout << "  [取消] 线路不能为空。\n"; return; }
-  int t = readInt("  请输入通行时间（分钟，默认 3）: ", 3);
-  if (graph_.addEdge(u, v, line, t))
-    std::cout << "  [成功] 已添加 " << u << " -> " << v
-              << " (" << line << ", " << t << " min)\n";
-  else
-    std::cout << "  [失败] 起点或终点不存在。\n";
-=======
 // ============================================================
 //      §3.3 建站管理（可选加分项）+ 运营管理扩展
 // ============================================================
-void Menu::buildMenu() {
-  stationMenu();
-}
+void Menu::buildMenu() { stationMenu(); }
 
 // ---- 运营管理扩展：换乘站整体关闭 ----
 void Menu::closeTransferStationMenu() {
   clearScreen();
   std::cout << "--- 换乘站整体关闭管理 ---\n";
-  std::cout << "  [说明] 输入换乘站名称（如\"人民广场\"），将同时关闭该站所有线路的站点。\n";
+  std::cout
+      << "  [说明] "
+         "输入换乘站名称（如\"人民广场\"），将同时关闭该站所有线路的站点。\n";
   std::string name = readLine("  请输入换乘站名称：");
-  if (name.empty()) return;
+  if (name.empty())
+    return;
   name = StationManager::trim(name);
-  int cnt = sm_.closeTransferStation(name);
+  int cnt = stationManager_.closeTransferStation(name);
   if (cnt == 0)
-    std::cout << "  [提示] 操作未生效，请检查站点名称是否正确或是否为换乘站。\n";
-  else
+    std::cout
+        << "  [提示] 操作未生效，请检查站点名称是否正确或是否为换乘站。\n";
+  else {
     std::cout << "  [完成] 已关闭 " << cnt << " 个站点。\n";
+    // 实时同步到 CSV
+    stationManager_.saveCurrentToCSV("data/Station.csv");
+  }
 }
 
 // ---- 运营管理扩展：线路停运管理 ----
@@ -764,26 +659,36 @@ void Menu::lineOutageMenu() {
     std::cout << "2. 恢复指定线路\n";
     std::cout << "3. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
-    if (ch == 3) return;
+    if (ch == 3)
+      return;
     if (ch != 1 && ch != 2) {
-      std::cout << "  [提示] 无效选项。\n"; pause(); continue;
+      std::cout << "  [提示] 无效选项。\n";
+      pause();
+      continue;
     }
 
-    auto lines = sm_.getAllLines();
+    auto lines = stationManager_.getAllLines();
     std::cout << "  可选线路：\n";
     for (size_t i = 0; i < lines.size(); ++i)
       std::cout << "  " << (i + 1) << ". " << lines[i] << "\n";
 
     int lc = readInt("  请输入线路序号：", -1);
     if (lc <= 0 || (size_t)lc > lines.size()) {
-      std::cout << "  [提示] 线路编号无效。\n"; pause(); continue;
+      std::cout << "  [提示] 线路编号无效。\n";
+      pause();
+      continue;
     }
     std::string line = lines[lc - 1];
 
-    if (ch == 1)
-      sm_.closeLineStations(line);
-    else
-      sm_.openLineStations(line);
+    if (ch == 1) {
+      int c = stationManager_.closeLineStations(line);
+      if (c > 0)
+        stationManager_.saveCurrentToCSV("data/Station.csv");
+    } else {
+      int c = stationManager_.openLineStations(line);
+      if (c > 0)
+        stationManager_.saveCurrentToCSV("data/Station.csv");
+    }
     pause();
   }
 }
@@ -798,24 +703,33 @@ void Menu::networkOutageMenu() {
     std::cout << "3. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
-      case 1: {
-        std::string ans = readLine("  确认全网停运?（Y/N）");
-        if (ans == "Y" || ans == "y" || ans == "是")
-          sm_.closeAllStations();
-        else
-          std::cout << "  已取消。\n";
-        pause(); break;
-      }
-      case 2: {
-        std::string ans = readLine("  确认全网恢复?（Y/N）");
-        if (ans == "Y" || ans == "y" || ans == "是")
-          sm_.openAllStations();
-        else
-          std::cout << "  已取消。\n";
-        pause(); break;
-      }
-      case 3: return;
-      default: std::cout << "  [提示] 无效选项。\n"; pause();
+    case 1: {
+      std::string ans = readLine("  确认全网停运?（Y/N）");
+      if (ans == "Y" || ans == "y" || ans == "是") {
+        int c = stationManager_.closeAllStations();
+        if (c > 0)
+          stationManager_.saveCurrentToCSV("data/Station.csv");
+      } else
+        std::cout << "  已取消。\n";
+      pause();
+      break;
+    }
+    case 2: {
+      std::string ans = readLine("  确认全网恢复?（Y/N）");
+      if (ans == "Y" || ans == "y" || ans == "是") {
+        int c = stationManager_.openAllStations();
+        if (c > 0)
+          stationManager_.saveCurrentToCSV("data/Station.csv");
+      } else
+        std::cout << "  已取消。\n";
+      pause();
+      break;
+    }
+    case 3:
+      return;
+    default:
+      std::cout << "  [提示] 无效选项。\n";
+      pause();
     }
   }
 }
@@ -824,7 +738,7 @@ void Menu::networkOutageMenu() {
 void Menu::networkConnectivityMenu() {
   clearScreen();
   std::cout << "--- 网络连通性分析 ---\n";
-  auto ninfo = pf_.analyzeNetworkConnectivity();
+  auto ninfo = pathFinder_.analyzeNetworkConnectivity();
 
   std::cout << "  开放站点数: " << ninfo.totalOpenStations << "\n";
   std::cout << "  关闭站点数: " << ninfo.totalClosedStations << "\n";
@@ -840,13 +754,15 @@ void Menu::networkConnectivityMenu() {
                 << " 个站点) ----\n";
       if (comp.size() <= 20) {
         for (int id : comp) {
-          const Station *s = sm_.findById(id);
-          if (s) std::cout << "    " << s->name << "(" << s->line << ")\n";
+          const Station *s = stationManager_.findById(id);
+          if (s)
+            std::cout << "    " << s->name << "(" << s->line << ")\n";
         }
       } else {
         for (size_t j = 0; j < 5 && j < comp.size(); ++j) {
-          const Station *s = sm_.findById(comp[j]);
-          if (s) std::cout << "    " << s->name << "(" << s->line << ")\n";
+          const Station *s = stationManager_.findById(comp[j]);
+          if (s)
+            std::cout << "    " << s->name << "(" << s->line << ")\n";
         }
         std::cout << "    ... 共 " << comp.size() << " 个站点\n";
       }
@@ -858,11 +774,12 @@ void Menu::networkConnectivityMenu() {
 void Menu::saveData() {
   clearScreen();
   std::cout << "--- 保存当前数据 ---\n";
-  std::string path = readLine("  请输入保存路径（直接回车覆盖 data/Station.csv）: ");
-  if (path.empty()) path = "data/Station.csv";
-  if (sm_.saveCurrentToCSV(path))
+  std::string path =
+      readLine("  请输入保存路径（直接回车覆盖 data/Station.csv）: ");
+  if (path.empty())
+    path = "data/Station.csv";
+  if (stationManager_.saveCurrentToCSV(path))
     std::cout << "  [成功] 已保存到 " << path << "\n";
   else
     std::cout << "  [失败] 保存失败。\n";
->>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
 }
