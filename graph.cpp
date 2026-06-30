@@ -12,8 +12,8 @@ void ensureSize(std::vector<std::vector<Edge>> &adjacencyList, int id) {
 }
 
 void addDirectedEdge(std::vector<std::vector<Edge>> &adjacencyList, int from,
-                            int to, const std::string &line, int time,
-                            const std::string &direction = "") {
+                     int to, const std::string &line, int time,
+                     const std::string &direction = "") {
   if (from < 0 || to < 0)
     return;
   ensureSize(adjacencyList, std::max(from, to));
@@ -48,7 +48,7 @@ bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
       std::cerr << "[Graph] 边数据字段数量错误: " << line << std::endl;
       continue;
     }
-    int from, to, t;
+    int from = -1, to = -1, t = 0;
     try {
       from = std::stoi(fields[0]);
       to = std::stoi(fields[1]);
@@ -118,8 +118,7 @@ void Graph::rebuild(const std::string &edgeCsvPath) {
   buildTransferEdges();
 }
 
-bool Graph::addEdge(int fromId, int toId,
-                    const std::string &line, int timeMin,
+bool Graph::addEdge(int fromId, int toId, const std::string &line, int timeMin,
                     const std::string &direction) {
   if (fromId < 0 || toId < 0)
     return false;

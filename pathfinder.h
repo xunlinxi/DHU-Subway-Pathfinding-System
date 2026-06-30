@@ -49,11 +49,11 @@ public:
 
   // 6) 网络连通性分析：使用 DFS 统计连通分量
   struct NetworkInfo {
-    int componentCount;                       // 连通分量数
-    int totalOpenStations;                    // 当前开放站点数
-    int totalClosedStations;                  // 当前关闭站点数
+    int componentCount = 0;                   // 连通分量数
+    int totalOpenStations = 0;                // 当前开放站点数
+    int totalClosedStations = 0;              // 当前关闭站点数
     std::vector<std::vector<int>> components; // 各连通分量的站点 id 列表
-    bool isConnected; // 全网是否连通（componentCount == 1）
+    bool isConnected = false; // 全网是否连通（componentCount == 1）
   };
   NetworkInfo analyzeNetworkConnectivity();
 

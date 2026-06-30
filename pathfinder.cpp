@@ -270,7 +270,8 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       for (int i = 0; i < (int)p.nodes.size() - 1; ++i) {
         std::string direction;
         for (const auto &e : graph.neighbors(p.nodes[i])) {
-          if (e.to == p.nodes[i + 1] && e.line == p.lines[i]) {
+          if (e.to == p.nodes[i + 1] &&
+              (e.line == p.lines[i] || e.line == "换乘")) {
             direction = e.direction;
             break;
           }
@@ -279,20 +280,6 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       }
       // 统计
       PathFinder::finalizeStats(p, graph);
-      // 填充方向信息
-      for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
-        int u = p.nodes[i], v = p.nodes[i + 1];
-        bool found = false;
-        for (const auto &e : adj[u]) {
-          if (e.to == v && (e.line == p.lines[i] || e.line == "换乘")) {
-            p.directions.push_back(e.direction);
-            found = true;
-            break;
-          }
-        }
-        if (!found)
-          p.directions.push_back("");
-      }
       // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
       // 状态更稳）
       if (goal == OptGoal::TIME) {
@@ -320,7 +307,7 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       int addTrans = (cur.line != nextLine) ? 1 : 0;
       if (freeInitialTransfer && cur.id == startId)
         addTrans = 0;
-      int newC1, newC2;
+      int newC1 = 0, newC2 = 0;
       if (goal == OptGoal::TIME) {
         newC1 = cur.cost1 + e.time;
         newC2 = cur.cost2 + addTrans;

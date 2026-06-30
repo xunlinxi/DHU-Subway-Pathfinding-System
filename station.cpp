@@ -180,7 +180,7 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
         id = std::stoi(fields[0]);
       } catch (...) {
         std::cout << "更新文件格式错误，终止更新。\n";
-        return false;
+        return -1;
       }
       const Station *s = findById(id);
       if (!s) {
@@ -210,13 +210,13 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
       continue;
     }
     std::cout << "更新文件格式错误，终止更新。\n";
-    return false;
+    return -1;
   }
   fin.close();
 
   if (recordCount == 0) {
     std::cout << "未检测到有效更新记录。\n";
-    return false;
+    return 0;
   }
 
   for (const auto &upd : pending) {
@@ -365,11 +365,9 @@ bool StationManager::restoreInitialStatusSilent() {
 }
 
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
-  // 原子写: 先写临时文件再改名, 避免半写导致 CSV 损坏
-  std::string tmpPath = csvPath + ".tmp";
-  std::ofstream fout(tmpPath, std::ios::binary);
+  std::ofstream fout(csvPath, std::ios::binary);
   if (!fout.is_open()) {
-    std::cerr << "[Station] 无法写入文件: " << tmpPath << std::endl;
+    std::cerr << "[Station] 无法写入文件: " << csvPath << std::endl;
     return false;
   }
   // 写 UTF-8 BOM, 防止 Windows 记事本 / 网页按 ANSI 解析造成中文乱码
@@ -381,12 +379,6 @@ bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
          << "\n";
   }
   fout.close();
-  // 用 std::rename 替换原文件 (Windows 上 rename 会覆盖)
-  std::remove(csvPath.c_str());
-  if (std::rename(tmpPath.c_str(), csvPath.c_str()) != 0) {
-    std::cerr << "[Station] 替换 CSV 失败: " << csvPath << std::endl;
-    return false;
-  }
   return true;
 }
 

@@ -28,7 +28,8 @@ void Menu::pause() {
 int Menu::readInt(const std::string &prompt, int defaultVal) {
   std::cout << prompt;
   std::string s;
-  std::getline(std::cin, s);
+  if (!std::getline(std::cin, s))
+    return defaultVal;
   // 去掉首尾 ASCII 空白
   size_t b = 0, e = s.size();
   auto isSpace = [](unsigned char c) {
