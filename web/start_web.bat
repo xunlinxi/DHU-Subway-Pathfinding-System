@@ -62,13 +62,14 @@ echo.
 
 REM ============= [1/3] Compile C++ Web entry =============
 echo [1/3] Compiling main_web.cpp ...
-g++ -std=c++11 -O2 -o main_web.exe main_web.cpp
+cd /d "%PROJECT_ROOT%\web"
+g++ -std=c++11 -O2 -I.. -o main_web.exe main_web.cpp
 if errorlevel 1 (
     echo [ERROR] g++ compile failed.
     pause
     exit /b 1
 )
-echo       [OK] main_web.exe built.
+echo       [OK] web\main_web.exe built.
 echo.
 
 REM ============= [2/3] Check Python dependencies =============

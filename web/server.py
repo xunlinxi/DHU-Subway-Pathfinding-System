@@ -4,17 +4,17 @@
 #
 #  文件位置: d:\Codes\数据结构课程设计\web\server.py
 #
-#  职责:
+# 职责:
 #    1. 接收浏览器 fetch 请求
-#    2. 用 subprocess 调用上一级目录的 main_web.exe
+#    2. 用 subprocess 调用同目录的 main_web.exe
 #    3. 解析 C++ 结构化输出, 转 JSON 返回
 #    4. 托管同目录的 index.html
 #
-#  启动:
+# 启动:
 #    cd d:\Codes\数据结构课程设计
 #    pip install fastapi uvicorn
 #    python web\server.py
-#  访问: http://127.0.0.1:8000
+# 访问: http://127.0.0.1:3724
 # =============================================================
 import os
 import subprocess
@@ -27,12 +27,13 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 # ============= 路径配置 =============
-# server.py 在 web/ 下, 所以项目根 = 父目录的父目录
-BASE_DIR   = Path(__file__).parent.parent.resolve()
+# server.py 在 web/ 下, 项目根 = 父目录 (web 的上一级)
+BASE_DIR   = Path(__file__).parent.parent.resolve()        # 项目根
+WEB_DIR    = Path(__file__).parent.resolve()               # web/
 EXE_NAME   = "main_web.exe" if sys.platform == "win32" else "main_web"
-MAIN_WEB   = str(BASE_DIR / EXE_NAME)            # 项目根/main_web.exe
-INDEX_HTML = str(Path(__file__).parent / "index.html")  # web/index.html
-DATA_DIR   = BASE_DIR / "data"                    # 项目根/data/
+MAIN_WEB   = str(WEB_DIR / EXE_NAME)                       # web/main_web.exe
+INDEX_HTML = str(WEB_DIR / "index.html")                   # web/index.html
+DATA_DIR   = BASE_DIR / "data"                             # 项目根/data/
 
 app = FastAPI(title="上海地铁路径规划 Web 服务", version="1.0.0")
 
