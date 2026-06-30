@@ -45,6 +45,7 @@ private:
     // ---------- 业务 ----------
     void showClosedStations();
     void showLineStations();
+    void queryStations();
     void toggleOneStation();
     void batchUpdateFromCSV();
     void restoreInitial();

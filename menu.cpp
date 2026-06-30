@@ -144,16 +144,14 @@ void Menu::run() {
     std::cout << "========================================\n";
     std::cout << "  1. 线路站点信息/运营状态管理\n";
     std::cout << "  2. 线路规划（路径查询）\n";
-    std::cout << "  3. 受关闭站点影响站点分析\n";
-    std::cout << "  4. 保存当前数据\n";
+    std::cout << "  3. 保存当前数据\n";
     std::cout << "  0. 退出\n";
     std::cout << "========================================\n";
     int ch = readInt("  请输入选项编号：");
     switch (ch) {
       case 1: stationMenu(); break;
       case 2: pathMenu();    break;
-      case 3: impactMenu();  pause(); break;
-      case 4: saveData();    pause(); break;
+      case 3: saveData();    pause(); break;
       case 0:
         std::cout << "  感谢使用，再见！\n";
         return;
@@ -177,7 +175,8 @@ void Menu::stationMenu() {
     std::cout << "4. 恢复所有站点初始状态\n";
     std::cout << "5. 显示线路站点信息\n";
     std::cout << "6. 受关闭站点影响站点分析\n";
-    std::cout << "7. 返回上级菜单\n";
+    std::cout << "7. 站点查询\n";
+    std::cout << "8. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
       case 1: batchUpdateFromCSV();   pause(); break;
@@ -186,7 +185,8 @@ void Menu::stationMenu() {
       case 4: restoreInitial();       pause(); break;
       case 5: showLineStations();     pause(); break;
       case 6: impactMenu();           pause(); break;   // 影响分析: 内部打印后暂停
-      case 7: return;
+      case 7: queryStations();        pause(); break;
+      case 8: return;
       default: std::cout << "  [提示] 无效选项。\n"; pause();
     }
   }
@@ -300,6 +300,31 @@ void Menu::showLineStations() {
       std::cout << ")";
     }
     std::cout << "\n";
+  }
+}
+
+
+// ---------- 7) 站点查询 ----------
+void Menu::queryStations() {
+  clearScreen();
+  std::cout << "--- 站点查询 ---\n";
+  std::string key = readLine("请输入站点名称：");
+  key = StationManager::trim(key);
+  if (key.empty()) {
+    std::cout << "  [提示] 站点名称不能为空。\n";
+    return;
+  }
+
+  auto hits = sm_.fuzzySearch(key);
+  if (hits.empty()) {
+    std::cout << "  [提示] 未找到匹配站点。\n";
+    return;
+  }
+
+  std::cout << "匹配的站点如下:\n";
+  for (size_t i = 0; i < hits.size(); ++i) {
+    std::cout << (i + 1) << ". " << hits[i].name
+              << "（" << hits[i].line << "）\n";
   }
 }
 
