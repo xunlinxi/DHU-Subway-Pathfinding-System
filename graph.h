@@ -8,11 +8,19 @@
 #include <vector>
 
 struct Edge {
+<<<<<<< HEAD
   int to;                    // 终点站 id
   std::string line;          // 所属线路
   std::string direction;     // 运行方向，例如 "内圈" / "往徐家汇"
   int time;                  // 通行时间（分钟）
 
+=======
+  int to;           // 终点站 id
+  std::string line; // 所属线路
+  int time;         // 通行时间（分钟）
+  std::string direction; // 运行方向（4号线："内圈"/"外圈"，其余空）
+  // 便于按 (to, line) 唯一标识一条边：换乘和同线用同一结构存储
+>>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
   bool operator==(const Edge &other) const {
     return to == other.to && line == other.line &&
            direction == other.direction;

@@ -62,8 +62,17 @@ bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
       continue;
     }
     std::string ln = fields[2];
+<<<<<<< HEAD
     std::string direction = fields[3];
     addDirectedEdge(adjacencyList_, from, to, ln, t, direction);
+=======
+    std::string dir = fields[3]; // 运行方向（4号线内/外圈）
+    addDirectedEdge(adj_, from, to, ln, t);
+    // 设置方向信息
+    if (!dir.empty() && dir != "-" && (int)adj_[from].size() > 0) {
+      adj_[from].back().direction = dir;
+    }
+>>>>>>> 9580c6717fae663add688a01adbdcb6a7959b5b5
     maxId = std::max(maxId, std::max(from, to));
   }
   fin.close();
