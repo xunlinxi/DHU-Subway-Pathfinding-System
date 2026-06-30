@@ -3,284 +3,818 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>上海地铁路径规划系统</title>
+<title>上海地铁路径规划与管理系统</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --primary: #4f46e5;  --primary-light: #818cf8;  --primary-dark: #3730a3;
-    --success: #10b981;  --danger: #ef4444;         --warning: #f59e0b;
-    --bg-grad-1: #667eea; --bg-grad-2: #764ba2;
-    --card-bg: rgba(255, 255, 255, 0.96);
-    --card-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    --text-main: #1f2937; --text-muted: #6b7280; --border: #e5e7eb;
+    /* B站配色 */
+    --bili-blue:        #00AEEC;
+    --bili-blue-dark:   #00A1D6;
+    --bili-blue-light:  #E5F4FB;
+    --bili-pink:        #FB7299;
+    --bili-pink-light:  #FEECEF;
+    --bili-orange:      #FFAD42;
+    --bili-green:       #23C88E;
+    --bili-red:         #F45454;
+
+    --bg:               #F4F5F7;
+    --bg-soft:          #FBFBFB;
+    --card:             #FFFFFF;
+    --border:           #E3E5E7;
+    --border-soft:      #F1F2F3;
+
+    --text-main:        #18191F;
+    --text-regular:     #4A4D55;
+    --text-muted:       #9499A0;
+    --text-link:        #00AEEC;
+
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+    --shadow:    0 4px 16px rgba(0,0,0,.06);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,.08);
+
+    --radius: 10px;
+    --radius-sm: 6px;
   }
+  html, body { height: 100%; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                 "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: linear-gradient(135deg, var(--bg-grad-1) 0%, var(--bg-grad-2) 100%);
-    min-height: 100vh; color: var(--text-main); line-height: 1.6;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue",
+                 Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+    font-size: 14px;
+    line-height: 1.6;
   }
-  /* 顶栏 */
+  button { font-family: inherit; }
+  input, select, button { font-family: inherit; font-size: 14px; }
+
+  /* ============= 顶栏 ============= */
   .topbar {
-    background: rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-    color: #fff; padding: 18px 32px;
+    position: sticky; top: 0; z-index: 50;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    height: 60px; padding: 0 28px;
     display: flex; align-items: center; justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-sm);
   }
-  .topbar h1 { font-size: 22px; font-weight: 600; }
-  .topbar .badge {
-    background: rgba(255,255,255,.25); padding: 4px 12px;
-    border-radius: 12px; font-size: 12px;
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 38px; height: 38px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--bili-blue) 0%, var(--bili-pink) 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 20px; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,174,236,.25);
   }
-  /* 布局 */
-  .container {
-    max-width: 1280px; margin: 24px auto; padding: 0 16px;
-    display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px;
+  .topbar h1 {
+    font-size: 18px; font-weight: 600; color: var(--text-main);
+    letter-spacing: .3px;
   }
-  @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
-  /* 卡片 */
+  .topbar h1 small {
+    font-size: 12px; font-weight: 400; color: var(--text-muted);
+    margin-left: 6px;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .health-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 20px;
+    background: var(--bili-blue-light); color: var(--bili-blue);
+    font-size: 12px; font-weight: 500;
+  }
+  .health-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bili-green);
+    box-shadow: 0 0 0 2px rgba(35,200,142,.2);
+  }
+  .health-pill.off { background: #FEE; color: var(--bili-red); }
+  .health-pill.off .dot { background: var(--bili-red); box-shadow: 0 0 0 2px rgba(244,84,84,.2); }
+
+  /* ============= 主体布局 ============= */
+  .layout {
+    max-width: 1380px; margin: 0 auto; padding: 18px;
+    display: grid; grid-template-columns: 200px 1fr; gap: 18px;
+  }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ============= 侧边导航 ============= */
+  .side-nav {
+    background: var(--card); border-radius: var(--radius);
+    padding: 8px; box-shadow: var(--shadow-sm);
+    align-self: start; position: sticky; top: 80px;
+  }
+  .side-nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; border-radius: var(--radius-sm);
+    cursor: pointer; color: var(--text-regular);
+    transition: all .15s; font-size: 14px; font-weight: 500;
+  }
+  .side-nav-item:hover { background: var(--bg); color: var(--bili-blue); }
+  .side-nav-item.active {
+    background: var(--bili-blue-light);
+    color: var(--bili-blue); font-weight: 600;
+  }
+  .side-nav-item .ic { font-size: 18px; line-height: 1; }
+  @media (max-width: 900px) {
+    .side-nav { position: static; display: flex; overflow-x: auto; }
+    .side-nav-item { white-space: nowrap; }
+  }
+
+  /* ============= 主内容 ============= */
+  .main { min-width: 0; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ============= 卡片 ============= */
   .card {
-    background: var(--card-bg); border-radius: 16px; padding: 24px;
-    box-shadow: var(--card-shadow); backdrop-filter: blur(8px);
+    background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 16px; overflow: hidden;
   }
-  .card h2 {
-    font-size: 18px; font-weight: 600; color: var(--primary-dark);
-    margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+  .card-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border-soft);
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .card h2::before {
-    content: ""; width: 4px; height: 18px;
-    background: var(--primary); border-radius: 2px;
+  .card-head h3 {
+    font-size: 15px; font-weight: 600; color: var(--text-main);
+    display: flex; align-items: center; gap: 8px;
   }
-  /* 表单 */
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  label {
+  .card-head h3::before {
+    content: ""; width: 3px; height: 14px;
+    background: var(--bili-blue); border-radius: 2px;
+  }
+  .card-body { padding: 20px; }
+
+  /* ============= 表单 ============= */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .form-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 700px) {
+    .form-grid, .form-grid.cols-3, .form-grid.cols-4 { grid-template-columns: 1fr; }
+  }
+  .form-item label {
     display: block; font-size: 12px; color: var(--text-muted);
-    margin-bottom: 4px; font-weight: 500;
+    margin-bottom: 5px; font-weight: 500;
   }
-  input, select {
-    width: 100%; padding: 9px 12px; border: 1px solid var(--border);
-    border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #fff;
+  .form-item input, .form-item select {
+    width: 100%; height: 36px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff; transition: all .15s;
   }
-  input:focus, select:focus {
-    outline: none; border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+  .form-item input:focus, .form-item select:focus {
+    outline: none; border-color: var(--bili-blue);
+    box-shadow: 0 0 0 3px rgba(0,174,236,.12);
   }
-  /* 按钮 */
+
+  /* ============= 按钮 ============= */
   .btn {
-    padding: 10px 20px; border: none; border-radius: 8px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
-    transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    height: 36px; padding: 0 18px; border: 1px solid transparent;
+    border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 14px; font-weight: 500; transition: all .15s;
+    background: #fff; color: var(--text-regular); white-space: nowrap;
   }
-  .btn-primary { background: var(--primary); color: #fff; }
-  .btn-primary:hover  { background: var(--primary-dark); transform: translateY(-1px); }
-  .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
-  .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
-  .btn-ghost:hover { background: var(--primary); color: #fff; }
-  .btn-row { display: flex; gap: 8px; margin-top: 16px; }
-  /* 开关 */
-  .mode-switch {
-    display: flex; background: #f3f4f6; border-radius: 8px; padding: 4px; margin-bottom: 12px;
+  .btn-primary  { background: var(--bili-blue);   color: #fff; border-color: var(--bili-blue); }
+  .btn-primary:hover  { background: var(--bili-blue-dark); }
+  .btn-pink     { background: var(--bili-pink);   color: #fff; border-color: var(--bili-pink); }
+  .btn-pink:hover{ filter: brightness(.95); }
+  .btn-success  { background: var(--bili-green);  color: #fff; border-color: var(--bili-green); }
+  .btn-danger   { background: var(--bili-red);    color: #fff; border-color: var(--bili-red); }
+  .btn-ghost    { background: #fff; color: var(--bili-blue); border-color: var(--bili-blue); }
+  .btn-ghost:hover { background: var(--bili-blue-light); }
+  .btn-text     { background: transparent; color: var(--text-muted); border-color: transparent; }
+  .btn-text:hover{ color: var(--bili-blue); }
+  .btn-sm       { height: 28px; padding: 0 10px; font-size: 12px; }
+  .btn-lg       { height: 40px; padding: 0 24px; font-size: 15px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-row      { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+  /* ============= 段控器 (B站风格) ============= */
+  .seg {
+    display: inline-flex; background: var(--bg); border-radius: 8px;
+    padding: 3px; gap: 2px;
   }
-  .mode-switch button {
-    flex: 1; border: none; background: transparent; padding: 8px;
-    border-radius: 6px; cursor: pointer; font-size: 13px;
-    transition: all 0.2s; color: var(--text-muted);
+  .seg button {
+    border: none; background: transparent;
+    padding: 6px 14px; border-radius: 6px;
+    cursor: pointer; color: var(--text-muted);
+    font-size: 13px; font-weight: 500; transition: all .15s;
   }
-  .mode-switch button.active {
-    background: #fff; color: var(--primary);
-    box-shadow: 0 1px 3px rgba(0,0,0,.1); font-weight: 500;
+  .seg button:hover { color: var(--bili-blue); }
+  .seg button.active {
+    background: #fff; color: var(--bili-blue);
+    box-shadow: var(--shadow-sm);
   }
-  /* 路径结果 */
-  .result-area { margin-top: 18px; min-height: 60px; }
+  .seg-lg button { padding: 8px 18px; font-size: 14px; }
+
+  /* ============= 折叠面板 ============= */
+  details.collapse {
+    background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow-sm); margin-bottom: 14px;
+  }
+  details.collapse summary {
+    list-style: none; cursor: pointer;
+    padding: 14px 20px; user-select: none;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: background .15s;
+  }
+  details.collapse summary::-webkit-details-marker { display: none; }
+  details.collapse summary:hover { background: var(--bg-soft); }
+  details.collapse summary .title {
+    font-size: 15px; font-weight: 600; color: var(--text-main);
+    display: flex; align-items: center; gap: 8px;
+  }
+  details.collapse summary .title::before {
+    content: ""; width: 3px; height: 14px;
+    background: var(--bili-blue); border-radius: 2px;
+  }
+  details.collapse summary .arrow {
+    transition: transform .2s; color: var(--text-muted); font-size: 12px;
+  }
+  details.collapse[open] summary .arrow { transform: rotate(180deg); }
+  details.collapse .collapse-body {
+    padding: 6px 20px 18px; border-top: 1px solid var(--border-soft);
+  }
+
+  /* ============= 提示 ============= */
+  .alert {
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    font-size: 13px; margin-bottom: 12px; line-height: 1.5;
+  }
+  .alert-info    { background: var(--bili-blue-light);  color: var(--bili-blue-dark); }
+  .alert-error   { background: var(--bili-pink-light);  color: var(--bili-red); }
+  .alert-success { background: #E6F9F1;                color: #0F8B5F; }
+  .alert-warn    { background: #FFF5E1;                color: #B26A00; }
+  .alert b { font-weight: 600; }
+
+  /* ============= 路径结果 ============= */
   .path-card {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);
-    border: 1px solid #c7d2fe; border-radius: 10px; padding: 14px; margin-bottom: 10px;
-  }
-  .path-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
-  .meta-tag {
     background: #fff; border: 1px solid var(--border);
-    padding: 3px 10px; border-radius: 12px; font-size: 12px; color: var(--text-muted);
+    border-radius: var(--radius); padding: 14px 16px;
+    margin-bottom: 10px; transition: all .15s;
   }
-  .meta-tag b { color: var(--primary); }
+  .path-card:hover { box-shadow: var(--shadow); }
+  .path-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .meta-tag {
+    background: var(--bg); padding: 3px 10px;
+    border-radius: 12px; font-size: 12px; color: var(--text-regular);
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .meta-tag b { color: var(--bili-blue); font-weight: 600; }
   .path-pretty {
-    background: #fff; border-radius: 8px; padding: 12px;
-    font-size: 13px; line-height: 1.8;
-    white-space: pre-wrap; word-break: break-word; color: var(--text-main);
-    font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+    background: var(--bg-soft); border-radius: var(--radius-sm);
+    padding: 12px 14px; font-size: 13px; line-height: 1.85;
+    color: var(--text-main);
+    font-family: ui-monospace, "Cascadia Code", "Consolas",
+                 "PingFang SC", "Microsoft YaHei", monospace;
+    white-space: pre-wrap; word-break: break-word;
+    border: 1px dashed var(--border);
   }
   .path-pretty .line-tag {
-    display: inline-block; background: var(--primary); color: #fff;
-    border-radius: 4px; padding: 1px 6px; font-size: 11px; margin: 0 2px;
+    display: inline-block; background: var(--bili-blue); color: #fff;
+    border-radius: 3px; padding: 0 5px; font-size: 11px;
+    margin: 0 1px; vertical-align: 1px;
   }
-  .path-pretty .transfer { color: var(--warning); font-weight: 500; }
-  .path-list-title { font-size: 13px; color: var(--text-muted); margin: 12px 0 6px; font-weight: 500; }
-  /* 提示 */
-  .alert { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
-  .alert-info  { background: #dbeafe; color: #1e40af; }
-  .alert-error { background: #fee2e2; color: #991b1b; }
-  .alert-success{background: #d1fae5; color: #065f46; }
-  /* 站点列表 */
-  .station-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-  .station-toolbar input { flex: 1; }
-  .station-list {
-    max-height: 540px; overflow-y: auto;
-    border: 1px solid var(--border); border-radius: 10px;
+  .path-pretty .transfer { color: var(--bili-orange); font-weight: 600; }
+  .path-pretty .start-end { color: var(--bili-pink); font-weight: 600; }
+  .path-pretty .time { color: var(--bili-green); font-weight: 600; }
+  .path-list-title {
+    font-size: 13px; color: var(--text-muted);
+    margin: 10px 0 8px; font-weight: 500;
   }
-  .station-list::-webkit-scrollbar       { width: 6px; }
-  .station-list::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
-  .station-item {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; border-bottom: 1px solid #f3f4f6; transition: background 0.15s;
+
+  /* ============= 站点列表 ============= */
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    margin-bottom: 12px;
   }
-  .station-item:last-child { border-bottom: none; }
-  .station-item:hover { background: #f9fafb; }
-  .station-info { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-  .station-name { font-weight: 500; }
-  .station-line {
-    background: #ede9fe; color: var(--primary-dark);
-    padding: 2px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap;
+  .toolbar input, .toolbar select {
+    height: 34px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff; font-size: 13px;
   }
-  .station-status { font-size: 12px; padding: 2px 8px; border-radius: 12px; white-space: nowrap; }
-  .station-status.open   { background: #d1fae5; color: #065f46; }
-  .station-status.closed { background: #fee2e2; color: #991b1b; }
-  /* iOS 风格开关 */
+  .toolbar input:focus, .toolbar select:focus {
+    outline: none; border-color: var(--bili-blue);
+    box-shadow: 0 0 0 3px rgba(0,174,236,.12);
+  }
+  .toolbar .grow { flex: 1; min-width: 180px; }
+  .station-table {
+    max-height: 600px; overflow-y: auto;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: #fff;
+  }
+  .station-table::-webkit-scrollbar       { width: 8px; }
+  .station-table::-webkit-scrollbar-thumb { background: #d0d3d6; border-radius: 4px; }
+  .station-row {
+    display: flex; align-items: center; padding: 10px 14px;
+    border-bottom: 1px solid var(--border-soft); gap: 10px;
+    transition: background .12s;
+  }
+  .station-row:hover { background: var(--bg-soft); }
+  .station-row:last-child { border-bottom: none; }
+  .station-row .name {
+    font-weight: 500; color: var(--text-main); flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .line-pill {
+    background: var(--bili-blue-light); color: var(--bili-blue);
+    padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    font-weight: 500; white-space: nowrap;
+  }
+  .status-pill {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px;
+    font-weight: 500; white-space: nowrap;
+  }
+  .status-pill.open   { background: #E6F9F1; color: #0F8B5F; }
+  .status-pill.closed { background: var(--bili-pink-light); color: var(--bili-red); }
+
+  /* ============= iOS 风格开关 ============= */
   .switch {
-    position: relative; width: 44px; height: 24px; background: #d1d5db;
-    border-radius: 12px; cursor: pointer; transition: background 0.25s; flex-shrink: 0;
+    position: relative; width: 40px; height: 22px;
+    background: #D5D7DC; border-radius: 11px;
+    cursor: pointer; transition: background .2s; flex-shrink: 0;
   }
-  .switch.on { background: var(--success); }
+  .switch.on { background: var(--bili-blue); }
   .switch::after {
     content: ""; position: absolute; top: 2px; left: 2px;
-    width: 20px; height: 20px; background: #fff; border-radius: 50%;
-    transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    width: 18px; height: 18px; background: #fff; border-radius: 50%;
+    transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2);
   }
-  .switch.on::after { transform: translateX(20px); }
-  /* Loading */
-  .loading { text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px; }
+  .switch.on::after { transform: translateX(18px); }
+
+  /* ============= 统计 ============= */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .stat-box {
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+  }
+  .stat-num   { font-size: 22px; font-weight: 700; color: var(--bili-blue); line-height: 1.2; }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .stat-box.pink .stat-num   { color: var(--bili-pink); }
+  .stat-box.green .stat-num  { color: var(--bili-green); }
+  .stat-box.orange .stat-num { color: var(--bili-orange); }
+
+  /* ============= Loading ============= */
+  .loading {
+    text-align: center; padding: 28px; color: var(--text-muted);
+    font-size: 13px;
+  }
   .spinner {
-    display: inline-block; width: 16px; height: 16px;
-    border: 2px solid var(--primary-light); border-top-color: var(--primary);
-    border-radius: 50%; animation: spin 0.8s linear infinite;
-    vertical-align: middle; margin-right: 6px;
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid var(--bili-blue-light);
+    border-top-color: var(--bili-blue);
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: -2px; margin-right: 6px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  /* 统计 */
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-  .stat-box {
-    background: #f9fafb; border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px; text-align: center;
+
+  /* ============= Toast ============= */
+  .toast-wrap {
+    position: fixed; top: 80px; right: 20px; z-index: 100;
+    display: flex; flex-direction: column; gap: 8px;
   }
-  .stat-num   { font-size: 20px; font-weight: 600; color: var(--primary); }
-  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .toast {
+    background: #fff; color: var(--text-main);
+    padding: 10px 16px; border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg); min-width: 240px;
+    border-left: 3px solid var(--bili-blue);
+    font-size: 13px; animation: slidein .25s;
+  }
+  .toast.success { border-left-color: var(--bili-green); }
+  .toast.error   { border-left-color: var(--bili-red); }
+  .toast.warn    { border-left-color: var(--bili-orange); }
+  @keyframes slidein { from { transform: translateX(20px); opacity: 0; } }
+
+  /* ============= 影响分析结果 ============= */
+  .impact-section {
+    background: var(--bg-soft); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px;
+  }
+  .impact-section h4 {
+    font-size: 13px; color: var(--text-main); font-weight: 600;
+    margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .impact-section h4 .count {
+    background: var(--bili-pink); color: #fff;
+    font-size: 11px; padding: 1px 7px; border-radius: 10px;
+    font-weight: 500;
+  }
+  .impact-section .st-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .impact-section .st-tag {
+    background: #fff; border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 4px; font-size: 12px;
+  }
+  .impact-section .st-tag .l {
+    color: var(--bili-blue); font-size: 11px; margin-left: 4px;
+  }
+  .level-pill {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 500;
+  }
+  .level-pill.L0 { background: var(--bili-blue-light); color: var(--bili-blue); }
+  .level-pill.L1 { background: #FFF5E1; color: #B26A00; }
+  .level-pill.L2 { background: var(--bili-pink-light); color: var(--bili-red); }
+  .level-pill.L3 { background: var(--bili-red); color: #fff; }
+
+  /* ============= 连通性结果 ============= */
+  .comp-bar {
+    display: flex; height: 24px; border-radius: 4px;
+    overflow: hidden; margin: 10px 0 6px; background: var(--border-soft);
+  }
+  .comp-bar > div {
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 11px; font-weight: 500;
+    transition: width .3s;
+  }
+  .comp-legend {
+    display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px;
+    color: var(--text-muted); margin-top: 4px;
+  }
+  .comp-legend .dot {
+    display: inline-block; width: 10px; height: 10px;
+    border-radius: 2px; margin-right: 4px; vertical-align: -1px;
+  }
+
+  /* ============= 通用辅助 ============= */
+  .row-flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .text-muted { color: var(--text-muted); }
+  .text-small { font-size: 12px; }
+  .mt-8 { margin-top: 8px; } .mt-12 { margin-top: 12px; } .mt-16 { margin-top: 16px; }
+  .empty {
+    padding: 36px 20px; text-align: center;
+    color: var(--text-muted); font-size: 13px;
+  }
+  .kbd {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 3px; padding: 1px 5px; font-size: 11px;
+    font-family: ui-monospace, monospace; color: var(--text-regular);
+  }
 </style>
 </head>
 <body>
-  <header class="topbar">
-    <h1>🚇 上海地铁路径规划与管理系统</h1>
-    <span class="badge" id="health-badge">Web 桥接服务</span>
-  </header>
 
-  <div class="container">
-    <!-- ========== 路径规划 ========== -->
-    <section class="card">
-      <h2>路径规划</h2>
-      <div class="form-row">
-        <div>
-          <label>起点站</label>
-          <input id="start-name" list="stations-datalist" placeholder="如: 莘庄">
-        </div>
-        <div>
-          <label>起点线路(可选)</label>
-          <input id="start-line" placeholder="如: 1号线 (留空=默认第一匹配)">
-        </div>
-      </div>
-      <div class="form-row">
-        <div>
-          <label>终点站</label>
-          <input id="end-name" list="stations-datalist" placeholder="如: 陆家嘴">
-        </div>
-        <div>
-          <label>终点线路(可选)</label>
-          <input id="end-line" placeholder="如: 2号线">
-        </div>
-      </div>
-
-      <label>优化目标</label>
-      <div class="mode-switch" id="mode-switch">
-        <button data-mode="time"     class="active">⏱️ 时间最短</button>
-        <button data-mode="transfer">🔄 换乘最少</button>
-      </div>
-
-      <label>返回路径数</label>
-      <div class="mode-switch" id="k-switch">
-        <button data-k="0" class="active">单条最优</button>
-        <button data-k="3">K=3 候选</button>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn btn-primary" id="btn-query">查询路径</button>
-        <button class="btn btn-ghost"   id="btn-clear">清空结果</button>
-      </div>
-      <div class="result-area" id="query-result"></div>
-    </section>
-
-    <!-- ========== 站点管理 ========== -->
-    <section class="card">
-      <h2>站点管理</h2>
-      <div class="stats" id="stats">
-        <div class="stat-box"><div class="stat-num" id="stat-total">-</div><div class="stat-label">总站点</div></div>
-        <div class="stat-box"><div class="stat-num" id="stat-open">-</div><div class="stat-label">开放</div></div>
-        <div class="stat-box"><div class="stat-num" id="stat-closed">-</div><div class="stat-label">关闭</div></div>
-      </div>
-      <div class="station-toolbar">
-        <input id="station-search" placeholder="🔍 搜索站点 (按名称过滤)">
-        <button class="btn btn-ghost" id="btn-reset">恢复初始</button>
-      </div>
-      <div class="station-list" id="station-list">
-        <div class="loading"><span class="spinner"></span>正在加载站点列表...</div>
-      </div>
-    </section>
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo">沪</div>
+    <h1>上海地铁路径规划与管理系统<small>DHU · 数据结构课程设计</small></h1>
   </div>
+  <div class="topbar-right">
+    <span class="health-pill" id="health-pill">
+      <span class="dot"></span><span id="health-text">检测中...</span>
+    </span>
+  </div>
+</header>
 
-  <datalist id="stations-datalist"></datalist>
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<div class="layout">
+
+  <!-- =========== 侧边导航 =========== -->
+  <nav class="side-nav">
+    <div class="side-nav-item active" data-tab="tab-plan">
+      <span class="ic">🚇</span><span>路径规划</span>
+    </div>
+    <div class="side-nav-item" data-tab="tab-station">
+      <span class="ic">🚉</span><span>站点管理</span>
+    </div>
+    <div class="side-nav-item" data-tab="tab-ops">
+      <span class="ic">⚙️</span><span>运营管理</span>
+    </div>
+    <div class="side-nav-item" data-tab="tab-analyze">
+      <span class="ic">📊</span><span>网络分析</span>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ====================== Tab 1: 路径规划 ====================== -->
+    <section class="tab-pane active" id="tab-plan">
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">基础查询</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="form-grid">
+            <div class="form-item">
+              <label>起点站</label>
+              <input id="start-name" list="stations-datalist" placeholder="如: 莘庄">
+            </div>
+            <div class="form-item">
+              <label>起点线路</label>
+              <select id="start-line"><option value="">（留空=默认匹配）</option></select>
+            </div>
+            <div class="form-item">
+              <label>终点站</label>
+              <input id="end-name" list="stations-datalist" placeholder="如: 陆家嘴">
+            </div>
+            <div class="form-item">
+              <label>终点线路</label>
+              <select id="end-line"><option value="">（留空=默认匹配）</option></select>
+            </div>
+          </div>
+
+          <div class="form-item mt-12">
+            <label>优化目标</label>
+            <div class="seg seg-lg" id="mode-switch">
+              <button data-mode="time"     class="active">⏱️ 时间最短</button>
+              <button data-mode="transfer">🔄 换乘最少</button>
+            </div>
+          </div>
+
+          <div class="form-item mt-8">
+            <label>返回路径数</label>
+            <div class="seg seg-lg" id="k-switch">
+              <button data-k="0" class="active">单条最优</button>
+              <button data-k="3">K=3 候选</button>
+            </div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn btn-primary btn-lg" id="btn-query">查询路径</button>
+            <button class="btn btn-ghost"            id="btn-clear">清空结果</button>
+            <span class="text-muted text-small">
+              提示: 换乘站需指定线路, 否则默认取首个匹配.
+            </span>
+          </div>
+          <div id="query-result" class="mt-16"></div>
+        </div>
+      </details>
+
+    </section>
+
+    <!-- ====================== Tab 2: 站点管理 ====================== -->
+    <section class="tab-pane" id="tab-station">
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">站点总览</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="stats" id="stats">
+            <div class="stat-box">     <div class="stat-num" id="stat-total">-</div><div class="stat-label">站点总数</div></div>
+            <div class="stat-box green"><div class="stat-num" id="stat-open">-</div> <div class="stat-label">开放</div></div>
+            <div class="stat-box pink"> <div class="stat-num" id="stat-closed">-</div><div class="stat-label">关闭</div></div>
+            <div class="stat-box orange"><div class="stat-num" id="stat-lines">-</div><div class="stat-label">线路数</div></div>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">站点列表与状态切换</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="toolbar">
+            <input class="grow" id="station-search" placeholder="🔍 搜索站名 (实时过滤)">
+            <select id="station-filter">
+              <option value="all">显示全部</option>
+              <option value="closed">仅显示关闭</option>
+              <option value="open">仅显示开放</option>
+            </select>
+            <select id="station-line-filter">
+              <option value="">全部线路</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" id="btn-refresh">🔄 刷新</button>
+          </div>
+          <div class="station-table" id="station-list">
+            <div class="loading"><span class="spinner"></span>正在加载...</div>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapse">
+        <summary>
+          <span class="title">换乘站批量管理</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-8">
+            输入换乘站名, 一键关闭/恢复其在<strong>所有线路</strong>上的同名站点 (如关闭"人民广场"会同时关闭 1/2/8 号线的人民广场)。
+          </div>
+          <div class="form-grid">
+            <div class="form-item">
+              <label>换乘站名</label>
+              <input id="transfer-name" list="transfer-datalist" placeholder="如: 人民广场">
+            </div>
+            <div class="form-item">
+              <label>操作</label>
+              <div class="row-flex mt-8">
+                <button class="btn btn-pink"  id="btn-close-transfer">⛔ 整体关闭</button>
+                <button class="btn btn-ghost" id="btn-tx-fuzzy">🔍 模糊匹配站点</button>
+              </div>
+            </div>
+          </div>
+          <div id="transfer-info" class="mt-12"></div>
+        </div>
+      </details>
+
+    </section>
+
+    <!-- ====================== Tab 3: 运营管理 ====================== -->
+    <section class="tab-pane" id="tab-ops">
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">线路级运营</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            选择线路, 可一键停运/恢复整条线路上的所有站点 (会影响所有经过该线路的路径规划)。
+          </div>
+          <div class="form-grid cols-3">
+            <div class="form-item">
+              <label>线路</label>
+              <select id="line-select"><option value="">加载中...</option></select>
+            </div>
+            <div class="form-item">
+              <label>当前状态</label>
+              <div class="row-flex mt-8" id="line-status-display">-</div>
+            </div>
+            <div class="form-item">
+              <label>操作</label>
+              <div class="row-flex mt-8">
+                <button class="btn btn-danger"  id="btn-line-close">⛔ 停运</button>
+                <button class="btn btn-success" id="btn-line-open">✅ 恢复</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapse">
+        <summary>
+          <span class="title">全网运营</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            紧急情况下可一键停运/恢复<strong>所有</strong>站点 (慎用, 路径规划将无法使用)。
+          </div>
+          <div class="row-flex">
+            <button class="btn btn-danger"  id="btn-net-close">⛔ 全网停运</button>
+            <button class="btn btn-success" id="btn-net-open">✅ 全网恢复</button>
+            <span class="text-muted text-small" id="net-status">-</span>
+          </div>
+        </div>
+      </details>
+
+      <details class="collapse">
+        <summary>
+          <span class="title">数据持久化</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            所有状态变更会自动保存到 <span class="kbd">data/Station.csv</span>。
+            如需手动触发保存或恢复到初始快照, 可使用下方按钮。
+          </div>
+          <div class="row-flex">
+            <button class="btn btn-primary" id="btn-save">💾 立即保存</button>
+            <button class="btn btn-ghost"   id="btn-reset">♻️ 恢复初始</button>
+            <span class="text-muted text-small" id="persist-status">-</span>
+          </div>
+        </div>
+      </details>
+
+    </section>
+
+    <!-- ====================== Tab 4: 网络分析 ====================== -->
+    <section class="tab-pane" id="tab-analyze">
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">单站关闭影响分析</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            输入站点名+线路, 分析若关闭该站点会影响的: 同线相邻站点、无邻站孤点、波及线路等。
+          </div>
+          <div class="form-grid">
+            <div class="form-item">
+              <label>站点名</label>
+              <input id="impact-name" list="stations-datalist" placeholder="如: 人民广场">
+            </div>
+            <div class="form-item">
+              <label>线路</label>
+              <select id="impact-line"><option value="">（加载中...）</option></select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-impact">🔬 分析影响</button>
+          </div>
+          <div id="impact-result" class="mt-12"></div>
+        </div>
+      </details>
+
+      <details class="collapse" open>
+        <summary>
+          <span class="title">网络连通性分析 (DFS/BFS)</span>
+          <span class="arrow">▼</span>
+        </summary>
+        <div class="collapse-body">
+          <div class="text-muted text-small mb-12">
+            基于图遍历统计当前线网中开放站点的连通分量数, 以及最大连通子图占比。
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="btn-network">🔗 分析连通性</button>
+          </div>
+          <div id="network-result" class="mt-12"></div>
+        </div>
+      </details>
+
+    </section>
+
+  </main>
+</div>
+
+<datalist id="stations-datalist"></datalist>
+<datalist id="transfer-datalist"></datalist>
 
 <script>
+/* =================================================================
+   上海地铁 Web 端 - B站配色版本
+   ================================================================= */
 const API = '';
-let allStations = [];
-let currentMode = 'time';
-let currentK = 0;
+let allStations   = [];     // [{id, name, line, status}]
+let allLines      = [];     // ['1号线', '2号线', ...]
+let currentMode   = 'time';
+let currentK      = 0;
 
 const $ = id => document.getElementById(id);
 const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, c => ({
   '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
 }[c]));
 
-function showAlert(area, type, msg) {
-  area.innerHTML = `<div class="alert alert-${type}">${escapeHtml(msg)}</div>`;
+/* ---------- Toast ---------- */
+function toast(msg, type = 'info', ttl = 2500) {
+  const w = $('toast-wrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  w.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = '.3s';
+    setTimeout(() => el.remove(), 300); }, ttl);
 }
-function showLoading(area, msg='请求中...') {
+function alertErr(area, msg) {
+  area.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(msg)}</div>`;
+}
+function alertOk(area, msg) {
+  area.innerHTML = `<div class="alert alert-success">✅ ${escapeHtml(msg)}</div>`;
+}
+function alertInfo(area, msg) {
+  area.innerHTML = `<div class="alert alert-info">💡 ${escapeHtml(msg)}</div>`;
+}
+function showLoading(area, msg = '请求中...') {
   area.innerHTML = `<div class="loading"><span class="spinner"></span>${escapeHtml(msg)}</div>`;
 }
+
+/* ---------- fetch 封装 ---------- */
+async function api(path, options = {}) {
+  const res = await fetch(API + path, options);
+  const ct  = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || data.message || `HTTP ${res.status}`);
+    return data;
+  }
+  throw new Error(await res.text() || `HTTP ${res.status}`);
+}
+
+/* ---------- 路径 pretty 高亮 ---------- */
 function prettyToHtml(text) {
   if (!text) return '';
   return text.split('\n').map(line => {
     let l = escapeHtml(line);
     l = l.replace(/\[([^\]]+)\]/g, '<span class="line-tag">$1</span>');
-    l = l.replace(/(站内换乘至[^\n]+)/g, '<span class="transfer">$1</span>');
-    l = l.replace(/(总耗时: \d+ 分钟)/g, '<b>$1</b>');
+    l = l.replace(/(站内换乘[^\n]*)/g, '<span class="transfer">$1</span>');
+    l = l.replace(/(起点[：:][^\n]*|终点[：:][^\n]*)/g, '<span class="start-end">$1</span>');
+    l = l.replace(/(总耗时[：: ]+\d+ 分钟)/g, '<span class="time">$1</span>');
     return l;
   }).join('\n');
 }
 
-async function api(path, options={}) {
-  const res = await fetch(API + path, options);
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) return await res.json();
-  throw new Error(await res.text() || `HTTP ${res.status}`);
-}
+/* =================================================================
+   Tab 切换
+   ================================================================= */
+document.querySelectorAll('.side-nav-item').forEach(it => {
+  it.onclick = () => {
+    document.querySelectorAll('.side-nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(x => x.classList.remove('active'));
+    it.classList.add('active');
+    $(it.dataset.tab).classList.add('active');
+    // 切到站点管理时确保数据已加载
+    if (it.dataset.tab === 'tab-station' && allStations.length === 0) loadStations();
+    if (it.dataset.tab === 'tab-ops'      && allLines.length === 0)    loadLines();
+  };
+});
 
-// 模式开关
+/* =================================================================
+   Tab 1: 路径规划
+   ================================================================= */
 document.querySelectorAll('#mode-switch button').forEach(b => {
   b.onclick = () => {
     document.querySelectorAll('#mode-switch button').forEach(x => x.classList.remove('active'));
@@ -294,14 +828,13 @@ document.querySelectorAll('#k-switch button').forEach(b => {
   };
 });
 
-// 路径查询
 $('btn-query').onclick = async () => {
-  const start = $('start-name').value.trim();
+  const start     = $('start-name').value.trim();
   const startLine = $('start-line').value.trim();
-  const end = $('end-name').value.trim();
-  const endLine = $('end-line').value.trim();
-  const result = $('query-result');
-  if (!start || !end) { showAlert(result, 'error', '请输入起点和终点站名'); return; }
+  const end       = $('end-name').value.trim();
+  const endLine   = $('end-line').value.trim();
+  const result    = $('query-result');
+  if (!start || !end) { alertErr(result, '请输入起点和终点站名'); return; }
   showLoading(result, '正在调用 C++ 算法引擎...');
 
   try {
@@ -309,9 +842,8 @@ $('btn-query').onclick = async () => {
     if (startLine) params.set('start_line', startLine);
     if (endLine)   params.set('end_line', endLine);
     const data = await api('/api/subway/query?' + params);
-    if (!data.ok) { showAlert(result, 'error', data.message || '查询失败'); return; }
+    if (!data.ok) { alertErr(result, data.message || '查询失败'); return; }
 
-    // 单条 (query / qtransfer)
     if (data.pretty) {
       result.innerHTML = `
         <div class="path-card">
@@ -323,15 +855,13 @@ $('btn-query').onclick = async () => {
           </div>
           <div class="path-pretty">${prettyToHtml(data.pretty)}</div>
         </div>`;
-    }
-    // 多条 (k* 命令)
-    else if (data.paths && data.paths.length) {
+    } else if (data.paths && data.paths.length) {
       let html = `<div class="path-list-title">共 ${data.paths.length} 条候选路径 (按 ${currentMode==='time'?'时间':'换乘'} 排序)</div>`;
       data.paths.forEach((p, i) => {
         html += `
           <div class="path-card">
             <div class="path-meta">
-              <span class="meta-tag">候选 ${i+1}</span>
+              <span class="meta-tag">#${i+1}</span>
               <span class="meta-tag">⏱ <b>${p.total_time} 分钟</b></span>
               <span class="meta-tag">🔄 <b>${p.transfers} 次</b></span>
               <span class="meta-tag">🚉 <b>${p.stops} 站</b></span>
@@ -341,54 +871,97 @@ $('btn-query').onclick = async () => {
       });
       result.innerHTML = html;
     } else {
-      showAlert(result, 'info', '未找到可达路径, 请检查起点/终点或关闭的站点.');
+      alertInfo(result, '未找到可达路径, 请检查起点/终点或已关闭的站点.');
     }
   } catch (e) {
-    showAlert(result, 'error', '请求失败: ' + e.message);
+    alertErr(result, '请求失败: ' + e.message);
   }
 };
 $('btn-clear').onclick = () => { $('query-result').innerHTML = ''; };
 
-// 站点管理
+/* =================================================================
+   Tab 2: 站点管理
+   ================================================================= */
 async function loadStations() {
   const list = $('station-list');
   showLoading(list, '正在加载站点列表...');
   try {
     const data = await api('/api/subway/stations/all');
-    if (!data.ok) { showAlert(list, 'error', data.message || '加载失败'); return; }
+    if (!data.ok) { alertErr(list, data.message || '加载失败'); return; }
     allStations = data.items || [];
-    updateDatalist(allStations);
+    updateDatalist();
     updateStats();
-    renderStations(allStations);
+    updateLineFilter();
+    renderStations();
   } catch (e) {
-    showAlert(list, 'error', '请求失败: ' + e.message);
+    alertErr(list, '请求失败: ' + e.message);
   }
 }
+async function loadLines() {
+  try {
+    const data = await api('/api/subway/lines');
+    if (!data.ok) return;
+    allLines = (data.items || []).map(x => x.line);
+    // 填充 4 个下拉
+    fillLineSelect($('start-line'), allLines);
+    fillLineSelect($('end-line'),   allLines);
+    fillLineSelect($('impact-line'),allLines, true);
+    fillLineSelect($('line-select'),allLines, true);
+  } catch (e) { console.warn('loadLines:', e.message); }
+}
+function fillLineSelect(sel, lines, includeEmpty = false) {
+  const cur = sel.value;
+  sel.innerHTML = (includeEmpty ? '<option value="">（请选择）</option>' : '<option value="">（留空=默认匹配）</option>')
+               + lines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+function updateDatalist() {
+  const names = [...new Set(allStations.map(s => s.name))];
+  $('stations-datalist').innerHTML   = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
+  // 换乘站: 出现在 ≥2 条线路
+  const transfer = names.filter(n => {
+    const lines = new Set(allStations.filter(s => s.name === n).map(s => s.line));
+    return lines.size >= 2;
+  });
+  $('transfer-datalist').innerHTML   = transfer.map(n => `<option value="${escapeHtml(n)}">`).join('');
+}
 function updateStats() {
-  const total = allStations.length;
+  const total  = allStations.length;
   const closed = allStations.filter(s => s.status === '关闭').length;
+  const lines  = new Set(allStations.map(s => s.line));
   $('stat-total').textContent  = total;
   $('stat-open').textContent   = total - closed;
   $('stat-closed').textContent = closed;
+  $('stat-lines').textContent  = lines.size;
 }
-function updateDatalist(list) {
-  const names = [...new Set(list.map(s => s.name))];
-  $('stations-datalist').innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
+function updateLineFilter() {
+  const lines = [...new Set(allStations.map(s => s.line))].sort((a,b) => a.localeCompare(b, 'zh-CN'));
+  const cur = $('station-line-filter').value;
+  $('station-line-filter').innerHTML =
+    `<option value="">全部线路</option>` +
+    lines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
+  if (cur) $('station-line-filter').value = cur;
 }
-function renderStations(list) {
+function renderStations() {
   const el = $('station-list');
-  if (!list.length) { el.innerHTML = '<div class="loading">无匹配站点</div>'; return; }
+  const kw   = $('station-search').value.trim().toLowerCase();
+  const fil  = $('station-filter').value;
+  const line = $('station-line-filter').value;
+  let list = allStations.slice();
+  if (kw)   list = list.filter(s => s.name.toLowerCase().includes(kw));
+  if (fil === 'open')   list = list.filter(s => s.status !== '关闭');
+  if (fil === 'closed') list = list.filter(s => s.status === '关闭');
+  if (line) list = list.filter(s => s.line === line);
   list.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN') || a.line.localeCompare(b.line, 'zh-CN'));
+
+  if (!list.length) { el.innerHTML = `<div class="empty">无匹配站点</div>`; return; }
   el.innerHTML = list.map(s => {
     const isOpen = s.status !== '关闭';
     return `
-      <div class="station-item">
-        <div class="station-info">
-          <span class="station-name">${escapeHtml(s.name)}</span>
-          <span class="station-line">${escapeHtml(s.line)}</span>
-        </div>
-        <span class="station-status ${isOpen ? 'open' : 'closed'}">${escapeHtml(s.status)}</span>
-        <div style="width:12px;"></div>
+      <div class="station-row">
+        <span class="name">${escapeHtml(s.name)}</span>
+        <span class="line-pill">${escapeHtml(s.line)}</span>
+        <span class="status-pill ${isOpen ? 'open' : 'closed'}">${escapeHtml(s.status)}</span>
         <div class="switch ${isOpen ? 'on' : ''}" data-name="${escapeHtml(s.name)}" data-line="${escapeHtml(s.line)}"></div>
       </div>`;
   }).join('');
@@ -396,10 +969,10 @@ function renderStations(list) {
     sw.onclick = () => toggleStation(sw.dataset.name, sw.dataset.line, sw);
   });
 }
-$('station-search').oninput = e => {
-  const kw = e.target.value.trim();
-  renderStations(kw ? allStations.filter(s => s.name.includes(kw)) : allStations);
-};
+$('station-search').oninput     = renderStations;
+$('station-filter').onchange    = renderStations;
+$('station-line-filter').onchange= renderStations;
+$('btn-refresh').onclick        = loadStations;
 
 async function toggleStation(name, line, sw) {
   sw.style.pointerEvents = 'none';
@@ -410,39 +983,243 @@ async function toggleStation(name, line, sw) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, line, status: newStatus })
     });
-    if (!data.ok) { alert('切换失败: ' + (data.message || '')); return; }
-    const item = sw.closest('.station-item');
-    const st = item.querySelector('.station-status');
+    if (!data.ok) { toast('切换失败: ' + (data.message || ''), 'error'); return; }
+    const row = sw.closest('.station-row');
+    const st  = row.querySelector('.status-pill');
     if (newStatus === '关闭') {
-      sw.classList.remove('on'); st.className = 'station-status closed'; st.textContent = '关闭';
+      sw.classList.remove('on'); st.className = 'status-pill closed'; st.textContent = '关闭';
     } else {
-      sw.classList.add('on');    st.className = 'station-status open';   st.textContent = '开启';
+      sw.classList.add('on');    st.className = 'status-pill open';   st.textContent = '开启';
     }
     const target = allStations.find(s => s.name === name && s.line === line);
     if (target) target.status = newStatus;
     updateStats();
+    toast(`${name} (${line}) → ${newStatus}`, newStatus === '关闭' ? 'warn' : 'success');
   } catch (e) {
-    alert('请求失败: ' + e.message);
+    toast('请求失败: ' + e.message, 'error');
   } finally {
     sw.style.pointerEvents = '';
   }
 }
+
+/* ---- 换乘站批量管理 ---- */
+$('btn-close-transfer').onclick = async () => {
+  const name = $('transfer-name').value.trim();
+  const info = $('transfer-info');
+  if (!name) { alertErr(info, '请输入换乘站名'); return; }
+  if (!confirm(`确认关闭 "${name}" 在所有线路上的同名站点?`)) return;
+  showLoading(info, '正在处理...');
+  try {
+    const data = await api('/api/subway/station/close-transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+    if (!data.ok) { alertErr(info, data.message || '操作失败'); return; }
+    alertOk(info, `已关闭 ${data.count} 个 "${name}" 同名站点, 并已同步到 CSV`);
+    await loadStations();
+    toast(`已关闭 ${data.count} 个同名换乘站`, 'success');
+  } catch (e) {
+    alertErr(info, '请求失败: ' + e.message);
+  }
+};
+$('btn-tx-fuzzy').onclick = () => {
+  const name = $('transfer-name').value.trim();
+  const info = $('transfer-info');
+  if (!name) { alertErr(info, '请输入站名'); return; }
+  const matched = allStations.filter(s => s.name.includes(name));
+  if (!matched.length) { alertErr(info, '无匹配站点'); return; }
+  const byName = {};
+  matched.forEach(s => {
+    (byName[s.name] = byName[s.name] || []).push(s);
+  });
+  let html = `<div class="alert alert-info">匹配到 ${matched.length} 条记录:</div>`;
+  Object.keys(byName).forEach(n => {
+    const lines = byName[n].map(s => s.line).join(' / ');
+    const isTx = byName[n].length >= 2;
+    html += `<div class="station-row">
+      <span class="name">${escapeHtml(n)}</span>
+      <span class="line-pill">${escapeHtml(lines)}</span>
+      <span class="status-pill ${isTx ? 'open' : ''}">${isTx ? '换乘站' : '单线'}</span>
+    </div>`;
+  });
+  info.innerHTML = html;
+};
+
+/* =================================================================
+   Tab 3: 运营管理
+   ================================================================= */
+$('btn-line-close').onclick = async () => doLineToggle('close');
+$('btn-line-open').onclick  = async () => doLineToggle('open');
+async function doLineToggle(action) {
+  const line = $('line-select').value;
+  if (!line) { toast('请先选择线路', 'warn'); return; }
+  if (!confirm(`确认 ${action === 'close' ? '停运' : '恢复'} 线路 ${line}?`)) return;
+  try {
+    const data = await api('/api/subway/line/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ line, action })
+    });
+    if (!data.ok) { toast('操作失败: ' + (data.message || ''), 'error'); return; }
+    toast(`线路 ${line} 已${action==='close'?'停运':'恢复'} (${data.count} 站)`, action==='close'?'warn':'success');
+    await loadStations();
+    updateLineStatus();
+  } catch (e) { toast('请求失败: ' + e.message, 'error'); }
+}
+$('line-select').onchange = updateLineStatus;
+function updateLineStatus() {
+  const line = $('line-select').value;
+  const slot = $('line-status-display');
+  if (!line) { slot.innerHTML = '-'; return; }
+  const sts = allStations.filter(s => s.line === line);
+  const closed = sts.filter(s => s.status === '关闭').length;
+  slot.innerHTML = `<span class="status-pill open">开放 ${sts.length-closed}</span>
+                    <span class="status-pill closed">关闭 ${closed}</span>
+                    <span class="text-muted text-small">/ 共 ${sts.length} 站</span>`;
+}
+
+$('btn-net-close').onclick = () => doNetToggle('close');
+$('btn-net-open').onclick  = () => doNetToggle('open');
+async function doNetToggle(action) {
+  if (!confirm(`确认 ${action==='close'?'停运全网所有站点':'恢复全网所有站点'}?`)) return;
+  try {
+    const data = await api('/api/subway/network/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action })
+    });
+    if (!data.ok) { toast('操作失败: ' + (data.message || ''), 'error'); return; }
+    toast(`全网已${action==='close'?'停运':'恢复'} (${data.count} 站)`, action==='close'?'warn':'success');
+    await loadStations();
+  } catch (e) { toast('请求失败: ' + e.message, 'error'); }
+}
+
+$('btn-save').onclick = async () => {
+  try {
+    const data = await api('/api/subway/save', { method: 'POST' });
+    if (!data.ok) { toast('保存失败: ' + (data.message || ''), 'error'); return; }
+    toast('已保存到 Station.csv', 'success');
+    $('persist-status').textContent = `最近保存: ${new Date().toLocaleTimeString()}`;
+  } catch (e) { toast('请求失败: ' + e.message, 'error'); }
+};
 $('btn-reset').onclick = async () => {
-  if (!confirm('确认恢复全部站点为初始开放状态?')) return;
+  if (!confirm('确认恢复所有站点到初始开放状态?  此操作不可撤销.')) return;
   try {
     const data = await api('/api/subway/reset', { method: 'POST' });
-    if (!data.ok) { alert('恢复失败: ' + (data.message || '')); return; }
+    if (!data.ok) { toast('恢复失败: ' + (data.message || ''), 'error'); return; }
+    toast('已恢复初始状态', 'success');
     await loadStations();
-    alert('已恢复初始状态');
+  } catch (e) { toast('请求失败: ' + e.message, 'error'); }
+};
+
+/* =================================================================
+   Tab 4: 网络分析
+   ================================================================= */
+$('btn-impact').onclick = async () => {
+  const name  = $('impact-name').value.trim();
+  const line  = $('impact-line').value;
+  const out   = $('impact-result');
+  if (!name || !line) { alertErr(out, '请输入站点名和线路'); return; }
+  showLoading(out, '正在分析影响...');
+  try {
+    const data = await api('/api/subway/analyze/impact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, line })
+    });
+    if (!data.ok) { alertErr(out, data.message || '分析失败'); return; }
+    const lvl = data.level || 0;
+    const lines = (data.affected_lines || []).join(' / ') || '（无）';
+    const adj = data.same_line_adj || [];
+    const noa = data.no_adj || [];
+    out.innerHTML = `
+      <div class="alert alert-info">
+        站点 <b>${escapeHtml(name)} (${escapeHtml(line)})</b> 的影响等级:
+        <span class="level-pill L${lvl}">L${lvl}</span>
+        &nbsp;&nbsp;波及线路: <b>${escapeHtml(lines)}</b>
+      </div>
+      <div class="impact-section">
+        <h4>同线相邻站点 <span class="count">${adj.length}</span></h4>
+        ${adj.length ? `<div class="st-tags">${
+          adj.map(s => `<span class="st-tag">${escapeHtml(s.name)}<span class="l">${escapeHtml(s.line)}</span></span>`).join('')
+        }</div>` : '<div class="text-muted text-small">（无）</div>'}
+      </div>
+      <div class="impact-section">
+        <h4>孤立/无邻站点 <span class="count">${noa.length}</span></h4>
+        ${noa.length ? `<div class="st-tags">${
+          noa.map(s => `<span class="st-tag">${escapeHtml(s.name)}<span class="l">${escapeHtml(s.line)}</span></span>`).join('')
+        }</div>` : '<div class="text-muted text-small">（无）</div>'}
+      </div>
+    `;
   } catch (e) {
-    alert('请求失败: ' + e.message);
+    alertErr(out, '请求失败: ' + e.message);
   }
 };
 
-// 启动
+$('btn-network').onclick = async () => {
+  const out = $('network-result');
+  showLoading(out, '正在分析连通性...');
+  try {
+    const data = await api('/api/subway/analyze/network');
+    if (!data.ok) { alertErr(out, data.message || '分析失败'); return; }
+    const open      = data.open || 0;
+    const closed    = data.closed || 0;
+    const total     = open + closed;
+    const comps     = data.components || [];
+    const isConn    = data.is_connected === 1;
+    const compCount = data.components || 0;
+    const colors = ['#00AEEC', '#FB7299', '#FFAD42', '#23C88E', '#7B61FF',
+                    '#A05195', '#D45087', '#F95D6A', '#FF7C43', '#665191'];
+    const max = comps.reduce((m, c) => Math.max(m, c.comp_size), 1);
+    let bar = '<div class="comp-bar">';
+    comps.forEach((c, i) => {
+      const w = (c.comp_size / max) * 100;
+      bar += `<div style="width:${w}%; background:${colors[i % colors.length]};" title="分量 ${c.comp_id}: ${c.comp_size} 站">${c.comp_size}</div>`;
+    });
+    bar += '</div>';
+    let legend = '<div class="comp-legend">';
+    comps.forEach((c, i) => {
+      legend += `<span><span class="dot" style="background:${colors[i % colors.length]};"></span>分量 ${c.comp_id} (${c.comp_size} 站)</span>`;
+    });
+    legend += '</div>';
+
+    out.innerHTML = `
+      <div class="stats">
+        <div class="stat-box">     <div class="stat-num">${total}</div>     <div class="stat-label">总站点</div></div>
+        <div class="stat-box green"><div class="stat-num">${open}</div>      <div class="stat-label">开放</div></div>
+        <div class="stat-box pink"> <div class="stat-num">${closed}</div>    <div class="stat-label">关闭</div></div>
+        <div class="stat-box orange"><div class="stat-num">${comps.length}</div><div class="stat-label">连通分量数</div></div>
+      </div>
+      <div class="alert ${isConn ? 'alert-success' : 'alert-warn'} mt-12">
+        ${isConn ? '✅ 当前全网连通 (1 个连通分量)' : `⚠️ 当前网络分裂为 ${comps.length} 个连通分量`}
+      </div>
+      <div class="text-small text-muted">各连通分量大小 (按 id 排序):</div>
+      ${bar}
+      ${legend}
+    `;
+  } catch (e) {
+    alertErr(out, '请求失败: ' + e.message);
+  }
+};
+
+/* =================================================================
+   启动
+   ================================================================= */
 loadStations();
+loadLines();
 fetch('/healthz').then(r => r.json()).then(h => {
-  $('health-badge').textContent = h.main_web_exists ? '✅ 后端在线' : '⚠️ main_web 未编译';
-}).catch(() => {});
-</script></body>
+  const pill = $('health-pill');
+  if (h.main_web_exists) {
+    $('health-text').textContent = '后端在线';
+  } else {
+    pill.classList.add('off');
+    $('health-text').textContent = 'main_web 未编译';
+  }
+}).catch(() => {
+  $('health-pill').classList.add('off');
+  $('health-text').textContent = '后端离线';
+});
+</script>
+</body>
 </html>

@@ -33,6 +33,9 @@ public:
   bool setStationStatus(const std::string &name, const std::string &line,
                         const std::string &newStatus);
   void restoreInitialStatus();
+  // 静默版: 不打印 [恢复] 行, 返回是否成功恢复 (false 表示无 init 快照)
+  // 适合作为子进程 / 库调用, 避免污染协议头
+  bool restoreInitialStatusSilent();
   bool saveCurrentToCSV(const std::string &csvPath) const;
 
   // ---- §3.3 路径状态信息管理与可视化模块 ----
@@ -63,6 +66,13 @@ public:
   int openAllStations();
   // 判断站点是否为换乘站（同名出现在多条线路）
   bool isTransferStation(const std::string &name) const;
+
+  // Silent 版本: 不打印中文提示, 适合子进程调用
+  int closeTransferStationSilent(const std::string &name);
+  int closeLineStationsSilent(const std::string &line);
+  int openLineStationsSilent(const std::string &line);
+  int closeAllStationsSilent();
+  int openAllStationsSilent();
 
   // ---- 辅助 ----
   // 解析一行 CSV（处理引号、逗号），返回字段数组

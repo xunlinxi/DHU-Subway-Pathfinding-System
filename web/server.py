@@ -66,6 +66,19 @@ def parse_output(stdout: str) -> Dict[str, Any]:
     data: Dict[str, Any] = {"ok": True}
     i, n = 1, len(lines)
 
+    def collect_keyvalue_block(start: int) -> (Dict[str, Any], int):
+        """从 start 开始读 KEY=VALUE 行, 直到非 KEY=VALUE 行, 返回 (dict, 下一行索引)"""
+        rec: Dict[str, Any] = {}
+        while i < n and lines[i] != "ITEM_END" and lines[i] != "PATH_END" \
+              and lines[i] != "SAME_LINE_ADJ_END" and lines[i] != "NO_ADJ_END":
+            if "=" in lines[i]:
+                k, v = lines[i].split("=", 1)
+                rec.setdefault(k.strip().lower(), []).append(_to_int(v.strip()))
+            i += 1
+        # 把单元素列表降为标量
+        flat = {k: v[0] if len(v) == 1 else v for k, v in rec.items()}
+        return flat, i
+
     while i < n:
         line = lines[i]
 
@@ -77,7 +90,6 @@ def parse_output(stdout: str) -> Dict[str, Any]:
                 buf.append(lines[i]); i += 1
             i += 1  # 跳过 PRETTY_END
             if "pretty" in data:
-                # 已经存在一个, 转成列表
                 data.setdefault("pretty_list", [data.pop("pretty")])
                 data["pretty_list"].append("\n".join(buf))
             else:
@@ -91,7 +103,15 @@ def parse_output(stdout: str) -> Dict[str, Any]:
             while i < n and lines[i] != "ITEM_END":
                 if "=" in lines[i]:
                     k, v = lines[i].split("=", 1)
-                    rec[k.strip().lower()] = _to_int(v.strip())
+                    k = k.strip().lower(); v = v.strip()
+                    v_conv = _to_int(v)
+                    if k in rec:
+                        # 同名字段 -> 转成列表 (list_lines 等场景)
+                        if not isinstance(rec[k], list):
+                            rec[k] = [rec[k]]
+                        rec[k].append(v_conv)
+                    else:
+                        rec[k] = v_conv
                 i += 1
             i += 1  # 跳过 ITEM_END
             data.setdefault("items", []).append(rec)
@@ -118,11 +138,69 @@ def parse_output(stdout: str) -> Dict[str, Any]:
             data.setdefault("paths", []).append(rec)
             continue
 
+        # 影响分析: SAME_LINE_ADJ_BEGIN ... SAME_LINE_ADJ_END
+        if line == "SAME_LINE_ADJ_BEGIN":
+            i += 1
+            adj: List[Dict[str, Any]] = []
+            cur: Dict[str, Any] = {}
+            while i < n and lines[i] != "SAME_LINE_ADJ_END":
+                if "=" in lines[i]:
+                    k, v = lines[i].split("=", 1)
+                    k = k.strip().lower(); v = v.strip()
+                    if k in ("id",) and cur:
+                        adj.append(cur); cur = {}
+                    cur[k] = _to_int(v) if k == "id" else v
+                i += 1
+            if cur: adj.append(cur)
+            i += 1
+            data["same_line_adj"] = adj
+            continue
+
+        # 影响分析: NO_ADJ_BEGIN ... NO_ADJ_END
+        if line == "NO_ADJ_BEGIN":
+            i += 1
+            noa: List[Dict[str, Any]] = []
+            cur = {}
+            while i < n and lines[i] != "NO_ADJ_END":
+                if "=" in lines[i]:
+                    k, v = lines[i].split("=", 1)
+                    k = k.strip().lower(); v = v.strip()
+                    if k == "id" and cur:
+                        noa.append(cur); cur = {}
+                    cur[k] = _to_int(v) if k == "id" else v
+                i += 1
+            if cur: noa.append(cur)
+            i += 1
+            data["no_adj"] = noa
+            continue
+
+        # 连通性: COMP_BEGIN ... COMP_END
+        if line == "COMP_BEGIN":
+            i += 1
+            comps: List[Dict[str, Any]] = []
+            cur = {}
+            while i < n and lines[i] != "COMP_END":
+                if "=" in lines[i]:
+                    k, v = lines[i].split("=", 1)
+                    k = k.strip().lower(); v = v.strip()
+                    if k == "comp_id" and cur:
+                        comps.append(cur); cur = {}
+                    cur[k] = _to_int(v)
+                i += 1
+            if cur: comps.append(cur)
+            i += 1
+            data["components"] = comps
+            continue
+
         # 顶层 key=value
         if "=" in line:
             k, v = line.split("=", 1)
             data[k.strip().lower()] = _to_int(v.strip())
         i += 1
+
+    # AFFECTED_LINES 逗号分隔
+    if "affected_lines" in data and isinstance(data["affected_lines"], str):
+        data["affected_lines"] = [x for x in data["affected_lines"].split(",") if x]
 
     return data
 
@@ -159,6 +237,20 @@ class ToggleRequest(BaseModel):
     name:   str = Field(..., description="站点名")
     line:   str = Field(..., description="线路, 如 1号线")
     status: str = Field(..., description="开启 或 关闭")
+
+class CloseTransferRequest(BaseModel):
+    name: str = Field(..., description="换乘站名称, 如 人民广场")
+
+class LineToggleRequest(BaseModel):
+    line:   str = Field(..., description="线路名, 如 1号线")
+    action: str = Field(..., description="open 或 close")
+
+class NetworkToggleRequest(BaseModel):
+    action: str = Field(..., description="open 或 close")
+
+class ImpactRequest(BaseModel):
+    name: str = Field(..., description="站点名")
+    line: str = Field(..., description="线路名")
 
 @app.get("/api/subway/query")
 def api_query(
@@ -206,6 +298,50 @@ def api_stations_line(line: str):
 def api_reset():
     return JSONResponse(run_main_web(["reset"]))
 
+@app.post("/api/subway/save")
+def api_save():
+    return JSONResponse(run_main_web(["save"]))
+
+@app.post("/api/subway/station/close-transfer")
+def api_close_transfer(req: CloseTransferRequest):
+    result = run_main_web(["close-transfer", req.name])
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "操作失败"))
+    return JSONResponse(result)
+
+@app.post("/api/subway/line/toggle")
+def api_line_toggle(req: LineToggleRequest):
+    if req.action not in ("open", "close"):
+        raise HTTPException(status_code=400, detail="action 必须是 open 或 close")
+    result = run_main_web(["line-toggle", req.line, req.action])
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "操作失败"))
+    return JSONResponse(result)
+
+@app.post("/api/subway/network/toggle")
+def api_network_toggle(req: NetworkToggleRequest):
+    if req.action not in ("open", "close"):
+        raise HTTPException(status_code=400, detail="action 必须是 open 或 close")
+    result = run_main_web(["network-toggle", req.action])
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "操作失败"))
+    return JSONResponse(result)
+
+@app.post("/api/subway/analyze/impact")
+def api_impact(req: ImpactRequest):
+    result = run_main_web(["impact", req.name, req.line])
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "分析失败"))
+    return JSONResponse(result)
+
+@app.get("/api/subway/analyze/network")
+def api_network():
+    return JSONResponse(run_main_web(["network"]))
+
+@app.get("/api/subway/lines")
+def api_lines():
+    return JSONResponse(run_main_web(["list_lines"]))
+
 @app.get("/")
 def index():
     if not os.path.exists(INDEX_HTML):
@@ -222,5 +358,5 @@ if __name__ == "__main__":
     print(f"[INFO] BASE_DIR     = {BASE_DIR}")
     print(f"[INFO] MAIN_WEB     = {MAIN_WEB}")
     print(f"[INFO] INDEX_HTML   = {INDEX_HTML}")
-    print(f"[INFO] Server ready at http://127.0.0.1:8000")
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    print(f"[INFO] Server ready at http://127.0.0.1:3724")
+    uvicorn.run(app, host="127.0.0.1", port=3724)

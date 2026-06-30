@@ -87,7 +87,7 @@ echo.
 
 REM ============= [3/3] Start Web server =============
 echo [3/3] Starting FastAPI server ...
-echo       Open http://127.0.0.1:8000 in your browser.
+echo       Open http://127.0.0.1:3724 in your browser.
 echo       Press Ctrl+C in this window to stop.
 echo.
 cd /d "%PROJECT_ROOT%\web"

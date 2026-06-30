@@ -7,7 +7,6 @@
 #include <ostream>
 #include <sstream>
 
-
 namespace {
 void rebuildIndexes(
     const std::vector<Station> &stations,
@@ -346,9 +345,15 @@ bool StationManager::setStationStatus(const std::string &name,
 }
 
 void StationManager::restoreInitialStatus() {
+  if (restoreInitialStatusSilent()) {
+    std::cout << "[恢复] 已将所有站点状态恢复为初始快照。\n";
+  }
+}
+
+// 不打印中文提示, 返回是否成功恢复
+bool StationManager::restoreInitialStatusSilent() {
   if (initialSnapshot_.empty()) {
-    std::cout << "[警告] 未加载 Station_init.csv，无法恢复。\n";
-    return;
+    return false;
   }
   for (const auto &initial : initialSnapshot_) {
     auto it = indexById_.find(initial.id);
@@ -356,7 +361,7 @@ void StationManager::restoreInitialStatus() {
       stations_[it->second].status = initial.status;
     }
   }
-  std::cout << "[恢复] 已将所有站点状态恢复为初始快照。\n";
+  return true;
 }
 
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
@@ -562,5 +567,67 @@ int StationManager::openAllStations() {
     }
   }
   std::cout << "[全网恢复] 已开启全部 " << cnt << " 个站点。\n";
+  return cnt;
+}
+
+// ============================================================
+//    Silent 版本: 不打印中文提示, 直接返回计数
+//    适合 main_web 等子进程调用, 避免污染 stdout 协议头
+// ============================================================
+int StationManager::closeTransferStationSilent(const std::string &name) {
+  auto it = indexesByName_.find(name);
+  if (it == indexesByName_.end())
+    return 0;
+  if (it->second.size() <= 1)
+    return 0;
+  int cnt = 0;
+  for (size_t idx : it->second) {
+    stations_[idx].status = "关闭";
+    ++cnt;
+  }
+  return cnt;
+}
+
+int StationManager::closeLineStationsSilent(const std::string &line) {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.line == line && st.status == "开启") {
+      st.status = "关闭";
+      ++cnt;
+    }
+  }
+  return cnt;
+}
+
+int StationManager::openLineStationsSilent(const std::string &line) {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.line == line && st.status == "关闭") {
+      st.status = "开启";
+      ++cnt;
+    }
+  }
+  return cnt;
+}
+
+int StationManager::closeAllStationsSilent() {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.status == "开启") {
+      st.status = "关闭";
+      ++cnt;
+    }
+  }
+  return cnt;
+}
+
+int StationManager::openAllStationsSilent() {
+  int cnt = 0;
+  for (auto &st : stations_) {
+    if (st.status == "关闭") {
+      st.status = "开启";
+      ++cnt;
+    }
+  }
   return cnt;
 }

@@ -23,7 +23,8 @@
 //    g++ -std=c++11 -O2 -o main_web.exe main_web.cpp
 //
 //  显式多文件编译 (更直观):
-//    g++ -std=c++11 -O2 -o main_web.exe main_web.cpp station.cpp graph.cpp pathfinder.cpp
+//    g++ -std=c++11 -O2 -o main_web.exe main_web.cpp station.cpp graph.cpp
+//    pathfinder.cpp
 // =============================================================
 #include "graph.h"
 #include "pathfinder.h"
@@ -41,23 +42,29 @@
 // ---------------- 数据路径 (与 main.cpp 一致) ----------------
 static const std::string STATION_CSV = "data/Station.csv";
 static const std::string STATION_INIT = "data/Station_init.csv";
-static const std::string EDGE_CSV     = "data/Edge.csv";
+static const std::string EDGE_CSV = "data/Edge.csv";
 
 // ---------------- Windows 编码兼容 ----------------
 // Windows 的 argv[] 按系统 ANSI 代码页 (中文系统 = GBK/CP936) 解码字节流,
 // 而程序内部字符串统一按 UTF-8 处理. 此函数把 GBK 字节转为 UTF-8 std::string.
 static std::string ansiToUtf8(const char *ansi) {
-  if (!ansi || !*ansi) return std::string(ansi ? ansi : "");
+  if (!ansi || !*ansi)
+    return std::string(ansi ? ansi : "");
 #ifdef _WIN32
   int wlen = MultiByteToWideChar(CP_ACP, 0, ansi, -1, nullptr, 0);
-  if (wlen <= 0) return std::string(ansi);
+  if (wlen <= 0)
+    return std::string(ansi);
   std::wstring wstr(wlen, L'\0');
   MultiByteToWideChar(CP_ACP, 0, ansi, -1, &wstr[0], wlen);
-  int u8len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
-  if (u8len <= 0) return std::string(ansi);
+  int u8len = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0,
+                                  nullptr, nullptr);
+  if (u8len <= 0)
+    return std::string(ansi);
   std::string u8(u8len, '\0');
-  WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &u8[0], u8len, nullptr, nullptr);
-  if (!u8.empty() && u8.back() == '\0') u8.pop_back();
+  WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &u8[0], u8len, nullptr,
+                      nullptr);
+  if (!u8.empty() && u8.back() == '\0')
+    u8.pop_back();
   return u8;
 #else
   return std::string(ansi);
@@ -72,28 +79,29 @@ static void emitErr(const std::string &msg) {
 
 // 输出单条路径
 static void emitPath(const Path &p, const StationManager &sm) {
-  std::cout << "VALID="        << (p.valid ? "1" : "0") << "\n"
-            << "TOTAL_TIME="   << p.totalTime          << "\n"
-            << "TRANSFERS="    << p.transferCnt        << "\n"
-            << "STOPS="        << p.stopCnt            << "\n"
-            << "ACTUAL_STOPS=" << p.actualStopCnt      << "\n"
+  std::cout << "VALID=" << (p.valid ? "1" : "0") << "\n"
+            << "TOTAL_TIME=" << p.totalTime << "\n"
+            << "TRANSFERS=" << p.transferCnt << "\n"
+            << "STOPS=" << p.stopCnt << "\n"
+            << "ACTUAL_STOPS=" << p.actualStopCnt << "\n"
             << "PRETTY_BEGIN\n"
             << p.toPrettyString(sm) << "\n"
             << "PRETTY_END\n";
 }
 
 // 输出多条路径 (K 短路)
-static void emitPaths(const std::vector<Path> &paths, const StationManager &sm) {
+static void emitPaths(const std::vector<Path> &paths,
+                      const StationManager &sm) {
   std::cout << "COUNT=" << (int)paths.size() << "\n";
   for (size_t i = 0; i < paths.size(); ++i) {
     const Path &p = paths[i];
     std::cout << "PATH_BEGIN\n"
-              << "INDEX="        << (i + 1)              << "\n"
-              << "VALID="        << (p.valid ? "1" : "0") << "\n"
-              << "TOTAL_TIME="   << p.totalTime          << "\n"
-              << "TRANSFERS="    << p.transferCnt        << "\n"
-              << "STOPS="        << p.stopCnt            << "\n"
-              << "ACTUAL_STOPS=" << p.actualStopCnt      << "\n"
+              << "INDEX=" << (i + 1) << "\n"
+              << "VALID=" << (p.valid ? "1" : "0") << "\n"
+              << "TOTAL_TIME=" << p.totalTime << "\n"
+              << "TRANSFERS=" << p.transferCnt << "\n"
+              << "STOPS=" << p.stopCnt << "\n"
+              << "ACTUAL_STOPS=" << p.actualStopCnt << "\n"
               << "PRETTY_BEGIN\n"
               << p.toPrettyString(sm) << "\n"
               << "PRETTY_END\n"
@@ -102,52 +110,67 @@ static void emitPaths(const std::vector<Path> &paths, const StationManager &sm) 
 }
 
 // ---------------- ID 解析辅助 ----------------
-static int findStationId(const StationManager &sm,
-                         const std::string &name,
+static int findStationId(const StationManager &sm, const std::string &name,
                          const std::string &line) {
   auto sts = sm.getStationsByName(name);
-  if (sts.empty()) return -1;
-  if (line.empty()) return sts[0].id;
-  for (auto &s : sts) if (s.line == line) return s.id;
+  if (sts.empty())
+    return -1;
+  if (line.empty())
+    return sts[0].id;
+  for (auto &s : sts)
+    if (s.line == line)
+      return s.id;
   return -1;
 }
 
 // ---------------- 命令实现 ----------------
 static int cmdSingleQuery(StationManager &sm, PathFinder &pf,
-                          const std::string &start, const std::string &startLine,
-                          const std::string &end,   const std::string &endLine,
-                          bool byTime) {
+                          const std::string &start,
+                          const std::string &startLine, const std::string &end,
+                          const std::string &endLine, bool byTime) {
   int sId = findStationId(sm, start, startLine);
-  int eId = findStationId(sm, end,   endLine);
-  if (sId < 0) { emitErr("找不到起点: " + start); return 0; }
-  if (eId < 0) { emitErr("找不到终点: " + end);   return 0; }
-  Path p = byTime ? pf.findBestByTime(sId, eId)
-                  : pf.findBestByTransfer(sId, eId);
+  int eId = findStationId(sm, end, endLine);
+  if (sId < 0) {
+    emitErr("找不到起点: " + start);
+    return 0;
+  }
+  if (eId < 0) {
+    emitErr("找不到终点: " + end);
+    return 0;
+  }
+  Path p =
+      byTime ? pf.findBestByTime(sId, eId) : pf.findBestByTransfer(sId, eId);
   emitOK();
-  std::cout << "START_ID=" << sId   << "\n"
-            << "END_ID="   << eId   << "\n"
-            << "MODE="     << (byTime ? "time" : "transfer") << "\n";
+  std::cout << "START_ID=" << sId << "\n"
+            << "END_ID=" << eId << "\n"
+            << "MODE=" << (byTime ? "time" : "transfer") << "\n";
   emitPath(p, sm);
   return 0;
 }
 
 static int cmdKQuery(StationManager &sm, PathFinder &pf,
                      const std::string &start, const std::string &startLine,
-                     const std::string &end,   const std::string &endLine,
-                     int K, bool byTime) {
+                     const std::string &end, const std::string &endLine, int K,
+                     bool byTime) {
   int sId = findStationId(sm, start, startLine);
-  int eId = findStationId(sm, end,   endLine);
-  if (sId < 0) { emitErr("找不到起点: " + start); return 0; }
-  if (eId < 0) { emitErr("找不到终点: " + end);   return 0; }
-  if (K < 1) K = 3;
-  std::vector<Path> paths = byTime
-      ? pf.findKShortestByTime(sId, eId, K)
-      : pf.findKShortestByTransfer(sId, eId, K);
+  int eId = findStationId(sm, end, endLine);
+  if (sId < 0) {
+    emitErr("找不到起点: " + start);
+    return 0;
+  }
+  if (eId < 0) {
+    emitErr("找不到终点: " + end);
+    return 0;
+  }
+  if (K < 1)
+    K = 3;
+  std::vector<Path> paths = byTime ? pf.findKShortestByTime(sId, eId, K)
+                                   : pf.findKShortestByTransfer(sId, eId, K);
   emitOK();
-  std::cout << "START_ID=" << sId   << "\n"
-            << "END_ID="   << eId   << "\n"
-            << "MODE="     << (byTime ? "time" : "transfer") << "\n"
-            << "K="        << K     << "\n";
+  std::cout << "START_ID=" << sId << "\n"
+            << "END_ID=" << eId << "\n"
+            << "MODE=" << (byTime ? "time" : "transfer") << "\n"
+            << "K=" << K << "\n";
   emitPaths(paths, sm);
   return 0;
 }
@@ -159,12 +182,15 @@ static int cmdToggle(StationManager &sm, const std::string &name,
     return 0;
   }
   bool ok = sm.setStationStatus(name, line, status);
-  if (!ok) { emitErr("更新失败, 站点不存在: " + name + " (" + line + ")"); return 0; }
+  if (!ok) {
+    emitErr("更新失败, 站点不存在: " + name + " (" + line + ")");
+    return 0;
+  }
   // 自动落盘, 保持磁盘与内存一致
   sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
-  std::cout << "NAME="   << name   << "\n"
-            << "LINE="   << line   << "\n"
+  std::cout << "NAME=" << name << "\n"
+            << "LINE=" << line << "\n"
             << "STATUS=" << status << "\n"
             << "MESSAGE=状态已更新并保存\n";
   return 0;
@@ -176,12 +202,13 @@ static int cmdListAll(const StationManager &sm) {
   std::cout << "COUNT=" << (int)sm.allStations().size() << "\n";
   for (const auto &s : sm.allStations()) {
     std::cout << "ITEM_BEGIN\n"
-              << "ID="     << s.id     << "\n"
-              << "NAME="   << s.name   << "\n"
-              << "LINE="   << s.line   << "\n"
+              << "ID=" << s.id << "\n"
+              << "NAME=" << s.name << "\n"
+              << "LINE=" << s.line << "\n"
               << "STATUS=" << s.status << "\n"
               << "ITEM_END\n";
-    if (s.status == "关闭") ++closedCount;
+    if (s.status == "关闭")
+      ++closedCount;
   }
   std::cout << "CLOSED_COUNT=" << closedCount << "\n";
   return 0;
@@ -190,13 +217,13 @@ static int cmdListAll(const StationManager &sm) {
 static int cmdListLine(const StationManager &sm, const std::string &line) {
   auto sts = sm.getStationsByLine(line);
   emitOK();
-  std::cout << "LINE="  << line << "\n"
+  std::cout << "LINE=" << line << "\n"
             << "COUNT=" << (int)sts.size() << "\n";
   for (const auto &s : sts) {
     std::cout << "ITEM_BEGIN\n"
-              << "ID="     << s.id     << "\n"
-              << "NAME="   << s.name   << "\n"
-              << "LINE="   << s.line   << "\n"
+              << "ID=" << s.id << "\n"
+              << "NAME=" << s.name << "\n"
+              << "LINE=" << s.line << "\n"
               << "STATUS=" << s.status << "\n"
               << "ITEM_END\n";
   }
@@ -209,9 +236,9 @@ static int cmdListClosed(const StationManager &sm) {
   std::cout << "COUNT=" << (int)closed.size() << "\n";
   for (const auto &s : closed) {
     std::cout << "ITEM_BEGIN\n"
-              << "ID="     << s.id     << "\n"
-              << "NAME="   << s.name   << "\n"
-              << "LINE="   << s.line   << "\n"
+              << "ID=" << s.id << "\n"
+              << "NAME=" << s.name << "\n"
+              << "LINE=" << s.line << "\n"
               << "STATUS=" << s.status << "\n"
               << "ITEM_END\n";
   }
@@ -219,7 +246,9 @@ static int cmdListClosed(const StationManager &sm) {
 }
 
 static int cmdReset(StationManager &sm) {
-  sm.restoreInitialStatus();
+  // 先把所有可变副作用做完, 最后再 emitOK
+  // (避免 StationManager 内部 print 的中文行污染协议头)
+  sm.restoreInitialStatusSilent(); // 静默版, 不打印 [恢复] 行
   sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
   std::cout << "MESSAGE=已恢复初始状态并保存\n";
@@ -228,25 +257,154 @@ static int cmdReset(StationManager &sm) {
 
 static int cmdSave(const StationManager &sm) {
   bool ok = sm.saveCurrentToCSV(STATION_CSV);
-  if (!ok) { emitErr("写回 CSV 失败"); return 0; }
+  if (!ok) {
+    emitErr("写回 CSV 失败");
+    return 0;
+  }
   emitOK();
   std::cout << "PATH=" << STATION_CSV << "\n";
   return 0;
 }
 
+// ---- 6. 换乘站整体关闭: close-transfer <name> ----
+static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
+  // 先做副作用, 全部完成后再 emitOK (避免中文行污染协议头)
+  int n = sm.closeTransferStationSilent(name);  // 静默版, 不打印中文
+  if (n > 0)
+    sm.saveCurrentToCSV(STATION_CSV);
+  emitOK();
+  std::cout << "NAME=" << name << "\n";
+  std::cout << "COUNT=" << n << "\n";
+  std::cout << "MESSAGE=已关闭 " << n << " 个同名换乘站并保存到 CSV\n";
+  return 0;
+}
+
+// ---- 7. 线路停运/恢复: line-toggle <line> <open|close> ----
+static int cmdLineToggle(StationManager &sm, const std::string &line,
+                         const std::string &action) {
+  int n = 0;
+  if (action == "close") {
+    n = sm.closeLineStationsSilent(line);
+  } else if (action == "open") {
+    n = sm.openLineStationsSilent(line);
+  } else {
+    emitErr("action 必须是 open 或 close");
+    return 0;
+  }
+  if (n > 0)
+    sm.saveCurrentToCSV(STATION_CSV);
+  emitOK();
+  std::cout << "LINE=" << line << "\n";
+  std::cout << "ACTION=" << action << "\n";
+  std::cout << "COUNT=" << n << "\n";
+  std::cout << "MESSAGE=线路 [" << line << "] 已"
+            << (action == "close" ? "停运" : "恢复") << " (" << n
+            << " 个站点) 并保存到 CSV\n";
+  return 0;
+}
+
+// ---- 8. 全网停运/恢复: network-toggle <open|close> ----
+static int cmdNetworkToggle(StationManager &sm, const std::string &action) {
+  int n = 0;
+  if (action == "close") {
+    n = sm.closeAllStationsSilent();
+  } else if (action == "open") {
+    n = sm.openAllStationsSilent();
+  } else {
+    emitErr("action 必须是 open 或 close");
+    return 0;
+  }
+  if (n > 0)
+    sm.saveCurrentToCSV(STATION_CSV);
+  emitOK();
+  std::cout << "ACTION=" << action << "\n";
+  std::cout << "COUNT=" << n << "\n";
+  std::cout << "MESSAGE=全网已" << (action == "close" ? "停运" : "恢复") << " ("
+            << n << " 个站点) 并保存到 CSV\n";
+  return 0;
+}
+
+// ---- 9. 关闭影响分析: impact <name> <line> ----
+static int cmdImpact(PathFinder &pf, StationManager &sm,
+                     const std::string &name, const std::string &line) {
+  auto info = pf.analyzeImpact(name, line);
+  emitOK();
+  std::cout << "NAME=" << name << "\n";
+  std::cout << "LINE=" << line << "\n";
+  std::cout << "LEVEL=" << info.level << "\n";
+  std::cout << "AFFECTED_LINES=";
+  for (size_t i = 0; i < info.affectedLines.size(); ++i) {
+    if (i)
+      std::cout << ",";
+    std::cout << info.affectedLines[i];
+  }
+  std::cout << "\n";
+  std::cout << "SAME_LINE_ADJ_BEGIN\n";
+  for (int nid : info.sameLineAdj) {
+    const Station *s = sm.findById(nid);
+    std::cout << "ID=" << nid << "\nNAME=" << (s ? s->name : "?")
+              << "\nLINE=" << (s ? s->line : "?") << "\n";
+  }
+  std::cout << "SAME_LINE_ADJ_END\n";
+  std::cout << "NO_ADJ_BEGIN\n";
+  for (int nid : info.noAdj) {
+    const Station *s = sm.findById(nid);
+    std::cout << "ID=" << nid << "\nNAME=" << (s ? s->name : "?")
+              << "\nLINE=" << (s ? s->line : "?") << "\n";
+  }
+  std::cout << "NO_ADJ_END\n";
+  return 0;
+}
+
+// ---- 10. 网络连通性分析: network ----
+static int cmdNetwork(PathFinder &pf) {
+  auto ninfo = pf.analyzeNetworkConnectivity();
+  emitOK();
+  std::cout << "OPEN=" << ninfo.totalOpenStations << "\n";
+  std::cout << "CLOSED=" << ninfo.totalClosedStations << "\n";
+  std::cout << "COMPONENTS=" << ninfo.componentCount << "\n";
+  std::cout << "IS_CONNECTED=" << (ninfo.isConnected ? 1 : 0) << "\n";
+  std::cout << "COMP_BEGIN\n";
+  for (int i = 0; i < ninfo.componentCount; ++i) {
+    std::cout << "COMP_ID=" << i
+              << "\nCOMP_SIZE=" << (int)ninfo.components[i].size() << "\n";
+  }
+  std::cout << "COMP_END\n";
+  return 0;
+}
+
+// ---- 11. 列出所有线路: lines ----
+static int cmdListLines(const StationManager &sm) {
+  auto lines = sm.getAllLines();
+  emitOK();
+  std::cout << "COUNT=" << (int)lines.size() << "\n";
+  std::cout << "ITEM_BEGIN\n";
+  for (const auto &l : lines)
+    std::cout << "LINE=" << l << "\n";
+  std::cout << "ITEM_END\n";
+  return 0;
+}
+
 static void printUsage() {
-  std::cout << "USAGE\n"
-            << "  main_web query       <起点> <起点线路> <终点> <终点线路>\n"
-            << "  main_web qtransfer   <起点> <起点线路> <终点> <终点线路>\n"
-            << "  main_web ktime       <起点> <起点线路> <终点> <终点线路> [K=3]\n"
-            << "  main_web ktransfer   <起点> <起点线路> <终点> <终点线路> [K=3]\n"
-            << "  main_web toggle      <站点名> <线路> <开启|关闭>\n"
-            << "  main_web list_all\n"
-            << "  main_web list_line   <线路>\n"
-            << "  main_web list_closed\n"
-            << "  main_web reset\n"
-            << "  main_web save\n"
-            << "  main_web help\n";
+  std::cout
+      << "USAGE\n"
+      << "  main_web query         <起点> <起点线路> <终点> <终点线路>\n"
+      << "  main_web qtransfer     <起点> <起点线路> <终点> <终点线路>\n"
+      << "  main_web ktime         <起点> <起点线路> <终点> <终点线路> [K=3]\n"
+      << "  main_web ktransfer     <起点> <起点线路> <终点> <终点线路> [K=3]\n"
+      << "  main_web toggle        <站点名> <线路> <开启|关闭>\n"
+      << "  main_web close-transfer<换乘站名>\n"
+      << "  main_web line-toggle   <线路> <open|close>\n"
+      << "  main_web network-toggle<open|close>\n"
+      << "  main_web impact        <站点名> <线路>\n"
+      << "  main_web network       (网络连通性分析)\n"
+      << "  main_web list_all\n"
+      << "  main_web list_line     <线路>\n"
+      << "  main_web list_closed\n"
+      << "  main_web list_lines    (列出所有线路名)\n"
+      << "  main_web reset\n"
+      << "  main_web save\n"
+      << "  main_web help\n";
 }
 
 // ---------------- 主入口 ----------------
@@ -256,7 +414,10 @@ int main(int argc, char **argv) {
   SetConsoleCP(CP_UTF8);
 #endif
 
-  if (argc < 2) { printUsage(); return 1; }
+  if (argc < 2) {
+    printUsage();
+    return 1;
+  }
   // 关键: Windows argv 按 ANSI 代码页解码, 转为 UTF-8 再用, 避免中文乱码
   std::vector<std::string> args;
   args.reserve(argc);
@@ -317,6 +478,24 @@ int main(int argc, char **argv) {
   }
   if (cmd == "save") {
     return cmdSave(sm);
+  }
+  if (cmd == "close-transfer" && argc >= 3) {
+    return cmdCloseTransfer(sm, args[2]);
+  }
+  if (cmd == "line-toggle" && argc >= 4) {
+    return cmdLineToggle(sm, args[2], args[3]);
+  }
+  if (cmd == "network-toggle" && argc >= 3) {
+    return cmdNetworkToggle(sm, args[2]);
+  }
+  if (cmd == "impact" && argc >= 4) {
+    return cmdImpact(pf, sm, args[2], args[3]);
+  }
+  if (cmd == "network") {
+    return cmdNetwork(pf);
+  }
+  if (cmd == "list_lines") {
+    return cmdListLines(sm);
   }
 
   emitErr("未知命令或参数不足: " + cmd);
