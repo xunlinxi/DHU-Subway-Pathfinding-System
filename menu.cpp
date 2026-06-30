@@ -119,9 +119,8 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
   while (true) {
     std::string key = readLine(prompt);
     key = StationManager::trim(key);
-    if (key == "exit")
-      return -1;
-    if (key.empty())
+    // 空字符串(=直接回车) / 输入 exit 都视为取消, 返回 -1
+    if (key.empty() || key == "exit")
       return -1;
 
     auto hits = stationManager_.fuzzySearch(key);
@@ -195,7 +194,7 @@ void Menu::run() {
 //   1.批量更新 2.手工更新 3.显示关闭站点 4.恢复初始
 //   5.显示线路站点 6.换乘站整体关闭 7.线路停运管理
 //   8.全网停运管理 9.受影响区域分析 10.网络连通性分析
-//   11.保存数据 12.返回上级菜单
+//   11.返回上级菜单
 // ============================================================
 void Menu::stationMenu() {
   while (true) {
@@ -211,8 +210,7 @@ void Menu::stationMenu() {
     std::cout << "8. 全网停运/恢复管理\n";
     std::cout << "9. 受关闭站点影响站点分析\n";
     std::cout << "10. 网络连通性分析\n";
-    std::cout << "11. 保存当前数据\n";
-    std::cout << "12. 返回上级菜单\n";
+    std::cout << "11. 返回上级菜单\n";
     int ch = readInt("请输入选项编号：");
     switch (ch) {
     case 1:
@@ -256,10 +254,6 @@ void Menu::stationMenu() {
       pause();
       break;
     case 11:
-      saveData();
-      pause();
-      break;
-    case 12:
       return;
     default:
       std::cout << "  [提示] 无效选项。\n";
@@ -330,7 +324,8 @@ void Menu::toggleOneStation() {
   std::cout << "--- 手工更新站点状态 ---\n";
   int modifiedCnt = 0;
   while (true) {
-    int id = fuzzyPickStation("请输入待修改站点关键词（exit退出）：");
+    int id =
+        fuzzyPickStation("请输入待修改站点关键词（直接回车或输入exit退出）：");
     if (id < 0)
       break;
     const Station *s = stationManager_.findById(id);
@@ -414,6 +409,12 @@ void Menu::showLineStations() {
   std::string line = allLines[choice - 1];
   auto sts = stationManager_.getStationsByLine(line);
   std::cout << "  " << line << " 共有 " << sts.size() << " 个站点：\n";
+
+  // 4 号线是环线, 显式提示内圈/外圈方向
+  if (line == "4号线") {
+    std::cout << "  [提示] 4 号线为环线, 列车按 内圈/外圈 两个方向运行,"
+                 " 同一站点存在两个方向的相邻站点。\n";
+  }
 
   // 对每个站点：判断是否为换乘站（同名存在多条线路 → 是换乘站）
   for (size_t i = 0; i < sts.size(); ++i) {
@@ -509,10 +510,10 @@ void Menu::runPathQuery(int mode) {
                           "3条换乘次数最少路径规划"};
   std::cout << "--- " << titles[mode] << " ---\n";
 
-  int sId = fuzzyPickStation("请输入起点站关键词：");
+  int sId = fuzzyPickStation("请输入起点站关键词（直接回车或输入exit取消）：");
   if (sId < 0)
     return;
-  int eId = fuzzyPickStation("请输入终点站关键词：");
+  int eId = fuzzyPickStation("请输入终点站关键词（直接回车或输入exit取消）：");
   if (eId < 0)
     return;
   if (sId == eId) {
@@ -585,7 +586,8 @@ void Menu::runPathQuery(int mode) {
 void Menu::runImpactAnalysis() {
   clearScreen();
   std::cout << "--- 受关闭站点影响站点分析 ---\n";
-  int id = fuzzyPickStation("  请输入待分析站点关键字：");
+  int id =
+      fuzzyPickStation("  请输入待分析站点关键字（直接回车或输入exit取消）：");
   if (id < 0)
     return;
   const Station *s = stationManager_.findById(id);
@@ -597,7 +599,7 @@ void Menu::runImpactAnalysis() {
   std::cout << "==============================\n";
   std::cout << "关闭站点：" << info.name << "(" << info.line << ")\n";
 
-  std::cout << "受影响线路：\n";
+  std::cout << "\n受影响线路：\n";
   if (info.affectedLines.empty()) {
     std::cout << "  (无)\n";
   } else {
@@ -619,8 +621,6 @@ void Menu::runImpactAnalysis() {
       std::cout << "\n";
     }
   }
-
-  std::cout << "\n影响等级：" << info.level << "\n";
 }
 
 // ============================================================

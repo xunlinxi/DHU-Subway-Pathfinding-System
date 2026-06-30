@@ -405,14 +405,6 @@
   .impact-section .st-tag .l {
     color: var(--bili-blue); font-size: 11px; margin-left: 4px;
   }
-  .level-pill {
-    display: inline-block; padding: 3px 10px; border-radius: 12px;
-    font-size: 12px; font-weight: 500;
-  }
-  .level-pill.L0 { background: var(--bili-blue-light); color: var(--bili-blue); }
-  .level-pill.L1 { background: #FFF5E1; color: #B26A00; }
-  .level-pill.L2 { background: var(--bili-pink-light); color: var(--bili-red); }
-  .level-pill.L3 { background: var(--bili-red); color: #fff; }
 
   /* ============= 连通性结果 ============= */
   .comp-bar {
@@ -1129,14 +1121,12 @@ $('btn-impact').onclick = async () => {
       body: JSON.stringify({ name, line })
     });
     if (!data.ok) { alertErr(out, data.message || '分析失败'); return; }
-    const lvl = data.level || 0;
     const lines = (data.affected_lines || []).join(' / ') || '（无）';
     const adj = data.same_line_adj || [];
     const noa = data.no_adj || [];
     out.innerHTML = `
       <div class="alert alert-info">
-        站点 <b>${escapeHtml(name)} (${escapeHtml(line)})</b> 的影响等级:
-        <span class="level-pill L${lvl}">L${lvl}</span>
+        站点 <b>${escapeHtml(name)} (${escapeHtml(line)})</b>
         &nbsp;&nbsp;波及线路: <b>${escapeHtml(lines)}</b>
       </div>
       <div class="impact-section">

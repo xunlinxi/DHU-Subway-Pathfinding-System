@@ -44,7 +44,6 @@ public:
     std::vector<int> sameLineAdj;           // 同线直接受影响站点
     std::vector<int> noAdj;                 // 关闭后会失去同线相邻站的站点
     std::vector<std::string> affectedLines; // 受影响线路
-    std::string level;                      // 影响等级
   };
   ImpactInfo analyzeImpact(const std::string &name, const std::string &line);
 

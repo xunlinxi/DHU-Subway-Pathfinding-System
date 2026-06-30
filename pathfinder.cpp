@@ -12,7 +12,7 @@
 
 namespace {
 bool isTransferEdgeLine(const std::string &line) { return line == "换乘"; }
-}
+} // namespace
 
 // ============================================================
 //                      Path 辅助方法
@@ -105,7 +105,8 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
         lines[startNodeIdx] == "4号线" &&
         (directions[startNodeIdx] == "内圈" ||
          directions[startNodeIdx] == "外圈")) {
-      return base + "·" + directions[startNodeIdx];
+      // 4 号线是环线, 显示方向: "4号线·内圈方向" / "4号线·外圈方向"
+      return base + "·" + directions[startNodeIdx] + "方向";
     }
     return base;
   };
@@ -113,7 +114,8 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
   std::string headerLine = segmentLineLabel(0);
   if (headerLine.empty())
     headerLine = firstLine;
-  oss << nodeNames[0] << "[" << headerLine << "]：\n";  int segmentStart = 0;
+  oss << nodeNames[0] << "[" << headerLine << "]：\n";
+  int segmentStart = 0;
   for (int i = 1; i < (int)nodes.size(); ++i) {
     if (nodeLines[i] == nodeLines[i - 1])
       continue;
@@ -121,13 +123,15 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
     std::string d = dirOf(i);
     oss << "\n站内换乘至[" << nodeLines[i];
     if (!d.empty())
-      oss << " (" << d << ")";
-    oss << "]\n";    segmentStart = i;
+      // 4 号线环线方向: "4号线 (内圈方向)" / "4号线 (外圈方向)"
+      oss << " (" << d << "方向)";
+    oss << "]\n";
+    segmentStart = i;
   }
   appendSegment(segmentStart, (int)nodes.size() - 1);
   oss << "\n  总耗时: " << totalTime << " 分钟 | 换乘: " << transferCnt
-      << " 次 | 途经: " << stopCnt << " 站 | 实际经过: "
-      << actualStopCnt << " 站";
+      << " 次 | 途经: " << stopCnt << " 站 | 实际经过: " << actualStopCnt
+      << " 站";
   return oss.str();
 }
 
@@ -143,8 +147,7 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
   for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
     int u = p.nodes[i], v = p.nodes[i + 1];
     for (const auto &e : g.neighbors(u)) {
-      if (e.to == v &&
-          (e.line == p.lines[i] || isTransferEdgeLine(e.line))) {
+      if (e.to == v && (e.line == p.lines[i] || isTransferEdgeLine(e.line))) {
         p.totalTime += e.time;
         break;
       }
@@ -209,7 +212,8 @@ struct PQState {
 } // namespace
 
 static Path dijkstraCore(int startId, int endId, OptGoal goal,
-                         const Graph &graph, const StationManager &stationManager,
+                         const Graph &graph,
+                         const StationManager &stationManager,
                          const std::unordered_set<int> *blockedNodes = nullptr,
                          int bannedFrom = -1, int bannedTo = -1,
                          const std::string &bannedLine = "",
@@ -286,7 +290,8 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
             break;
           }
         }
-        if (!found) p.directions.push_back("");
+        if (!found)
+          p.directions.push_back("");
       }
       // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
       // 状态更稳）
@@ -345,8 +350,8 @@ Path PathFinder::dijkstraConstrained(
     int startId, int endId, OptGoal goal,
     const std::unordered_set<int> &blockedNodes, int bannedFrom, int bannedTo,
     const std::string &bannedLine) {
-  return dijkstraCore(startId, endId, goal, graph_, stationManager_, &blockedNodes,
-                      bannedFrom, bannedTo, bannedLine, false);
+  return dijkstraCore(startId, endId, goal, graph_, stationManager_,
+                      &blockedNodes, bannedFrom, bannedTo, bannedLine, false);
 }
 
 // ============================================================
@@ -477,9 +482,9 @@ std::vector<Path> PathFinder::findKShortestByTransfer(int startId, int endId,
   return kShortestYen(startId, endId, K, OptGoal::TRANSFER, *this);
 }
 
-// ============================================================
+// =============================================================
 //                  3) 受影响区域分析
-// ============================================================
+// =============================================================
 PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
                                                  const std::string &line) {
   ImpactInfo info;
@@ -505,7 +510,6 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
     }
     info.sameLineAdj.swap(dedupAdj);
   }
-
   // 找出"被关后变成孤岛"的邻站
   for (int sid : info.sameLineAdj) {
     auto nbrs = graph_.sameLineNeighbors(sid);
@@ -530,14 +534,6 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
   }
   info.affectedLines.push_back(line);
 
-  int transferLineCnt = (int)stations.size();
-  int sameLineCnt = (int)info.sameLineAdj.size();
-  if (transferLineCnt >= 3 || sameLineCnt >= 3)
-    info.level = "高";
-  else if (transferLineCnt == 2 || sameLineCnt == 2)
-    info.level = "中";
-  else
-    info.level = "低";
   return info;
 }
 
@@ -574,11 +570,15 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
       [&](int cur, std::vector<int> &comp) {
         visited.insert(cur);
         comp.push_back(cur);
-        if (cur >= (int)adj.size()) return;
+        if (cur >= (int)adj.size())
+          return;
         for (const auto &e : adj[cur]) {
-          if (stationManager_.isClosed(e.to)) continue;        // 跳过关闭站点
-          if (e.line == "换乘") continue;           // 换乘边不用于连通性（由同线边传递）
-          if (visited.count(e.to)) continue;
+          if (stationManager_.isClosed(e.to))
+            continue; // 跳过关闭站点
+          if (e.line == "换乘")
+            continue; // 换乘边不用于连通性（由同线边传递）
+          if (visited.count(e.to))
+            continue;
           dfs(e.to, comp);
         }
       };
@@ -590,24 +590,30 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
     while (!stk.empty()) {
       int u = stk.top();
       stk.pop();
-      if (visited.count(u)) continue;
+      if (visited.count(u))
+        continue;
       visited.insert(u);
       comp.push_back(u);
-      if (u >= (int)adj.size()) continue;
+      if (u >= (int)adj.size())
+        continue;
       for (const auto &e : adj[u]) {
-        if (stationManager_.isClosed(e.to)) continue;
-        if (visited.count(e.to)) continue;
+        if (stationManager_.isClosed(e.to))
+          continue;
+        if (visited.count(e.to))
+          continue;
         stk.push(e.to);
       }
     }
   };
 
   std::vector<int> allOpen;
-  for (int id : openIds) allOpen.push_back(id);
+  for (int id : openIds)
+    allOpen.push_back(id);
   std::sort(allOpen.begin(), allOpen.end());
 
   for (int id : allOpen) {
-    if (visited.count(id)) continue;
+    if (visited.count(id))
+      continue;
     std::vector<int> comp;
     dfsFull(id, comp);
     std::sort(comp.begin(), comp.end());

@@ -269,7 +269,7 @@ static int cmdSave(const StationManager &sm) {
 // ---- 6. 换乘站整体关闭: close-transfer <name> ----
 static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
   // 先做副作用, 全部完成后再 emitOK (避免中文行污染协议头)
-  int n = sm.closeTransferStationSilent(name);  // 静默版, 不打印中文
+  int n = sm.closeTransferStationSilent(name); // 静默版, 不打印中文
   if (n > 0)
     sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
@@ -331,7 +331,6 @@ static int cmdImpact(PathFinder &pf, StationManager &sm,
   emitOK();
   std::cout << "NAME=" << name << "\n";
   std::cout << "LINE=" << line << "\n";
-  std::cout << "LEVEL=" << info.level << "\n";
   std::cout << "AFFECTED_LINES=";
   for (size_t i = 0; i < info.affectedLines.size(); ++i) {
     if (i)

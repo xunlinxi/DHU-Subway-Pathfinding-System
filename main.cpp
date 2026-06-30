@@ -21,6 +21,7 @@
 #include "station.h"
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 #include <string>
 
 #ifdef _WIN32
@@ -96,8 +97,8 @@ static int runDemo() {
        "2号线"},
       {"【T4】人民广场 -> 龙阳路 (2→7 在 龙阳路)", "人民广场", "2号线",
        "龙阳路", "7号线"},
-      {"【T5】人民广场 -> 陆家嘴 (起点为换乘站, 不计初始换乘)", "人民广场", "1号线",
-       "陆家嘴", "2号线"},
+      {"【T5】人民广场 -> 陆家嘴 (起点为换乘站, 不计初始换乘)", "人民广场",
+       "1号线", "陆家嘴", "2号线"},
       {"【T6】宜山路 -> 世纪大道 (4号线内圈)", "宜山路", "4号线", "世纪大道",
        "4号线"},
       {"【T7】世纪大道 -> 宜山路 (4号线外圈)", "世纪大道", "4号线", "宜山路",
@@ -139,7 +140,6 @@ static int runDemo() {
   std::cout << "===== 【受影响分析】如果关闭 世纪公园 (2号线) =====\n";
   auto info = pf.analyzeImpact("世纪公园", "2号线");
   std::cout << "  站点: " << info.name << " (" << info.line << ")\n";
-  std::cout << "  影响等级: " << info.level << "\n";
   std::cout << "  受影响线路数: " << info.affectedLines.size() << "\n";
   std::cout << "  同线相邻数: " << info.sameLineAdj.size() << "\n";
   std::cout << "  关闭后变孤立的站点数: " << info.noAdj.size() << "\n\n";
@@ -206,6 +206,17 @@ int main(int argc, char **argv) {
   // 4) 启动菜单
   Menu menu(sm, graph, pf);
   menu.run();
+  // 退出主菜单后, 等待用户按回车再关闭窗口, 避免日志/截图被错过
+  std::cout << "\n========================================\n";
+  std::cout << "  感谢使用, 再见!\n";
+  std::cout << "  >>> 按回车键退出程序...\n";
+  std::cout << "========================================\n";
+#ifdef _WIN32
+  // 显式刷新 stdio 缓冲, 确保上面几行一定先打印出来
+  std::cout.flush();
+#endif
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+  std::cin.get();
   return 0;
 }
 
