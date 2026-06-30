@@ -46,32 +46,49 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     return s ? s->line : std::string("?");
   };
 
-  std::string firstLine = !lines.empty() ? lines[0] : lineOf(nodes[0]);
+  std::vector<std::string> nodeNames;
+  std::vector<std::string> nodeLines;
+  nodeNames.reserve(nodes.size());
+  nodeLines.reserve(nodes.size());
+  for (int id : nodes) {
+    nodeNames.push_back(nameOf(id));
+    nodeLines.push_back(lineOf(id));
+  }
+
+  std::string firstLine = nodeLines[0];
 
   if (nodes.size() == 1) {
     std::ostringstream oss;
-    oss << nameOf(nodes[0]) << "[" << firstLine << "]：\n";
-    oss << nameOf(nodes[0]);
+    oss << nodeNames[0] << "[" << firstLine << "]：\n";
+    oss << nodeNames[0];
     oss << "\n  总耗时: 0 分钟 | 换乘: 0 次 | 途经: 1 站 | 实际经过: 1 站";
     return oss.str();
   }
 
   std::ostringstream oss;
   auto appendSegment = [&](int startIdx, int endIdx) {
+    if (startIdx > endIdx)
+      return;
+    bool first = true;
+    std::string prevName;
     for (int i = startIdx; i <= endIdx; ++i) {
-      if (i > startIdx)
+      if (i > startIdx && nodeNames[i] == prevName)
+        continue;
+      if (!first)
         oss << " -> ";
-      oss << nameOf(nodes[i]);
+      oss << nodeNames[i];
+      first = false;
+      prevName = nodeNames[i];
     }
   };
 
-  oss << nameOf(nodes[0]) << "[" << firstLine << "]：\n";
+  oss << nodeNames[0] << "[" << firstLine << "]：\n";
   int segmentStart = 0;
-  for (int i = 1; i < (int)lines.size(); ++i) {
-    if (lines[i] == lines[i - 1] || isTransferEdgeLine(lines[i]))
+  for (int i = 1; i < (int)nodes.size(); ++i) {
+    if (nodeLines[i] == nodeLines[i - 1])
       continue;
     appendSegment(segmentStart, i - 1);
-    oss << "\n站内换乘至[" << lines[i] << "]\n";
+    oss << "\n站内换乘至[" << nodeLines[i] << "]\n";
     segmentStart = i;
   }
   appendSegment(segmentStart, (int)nodes.size() - 1);
