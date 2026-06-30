@@ -8,6 +8,8 @@
 #pragma once
 
 #include <algorithm>
+#include <iostream>
+#include <iomanip>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -53,6 +55,23 @@ public:
   void restoreInitialStatus();
   // 把当前 status 同步回 Station.csv（便于人工查看最新结果）
   bool saveCurrentToCSV(const std::string &csvPath) const;
+
+  // ---- §3.3 路径状态信息管理与可视化模块 ----
+  // 规范名: updateStationStatus / saveStationStatus / showClosedStations / showStationsByLine
+  // （与上方方法语义一致，仅为对齐规范命名）
+  bool   updateStationStatus(const std::string &csvPath) { return batchUpdateFromCSV(csvPath); }
+  bool   saveStationStatus  (const std::string &csvPath) const { return saveCurrentToCSV(csvPath); }
+  void   showClosedStations(std::ostream &os = std::cout) const;
+  void   showStationsByLine(const std::string &line, std::ostream &os = std::cout) const;
+
+  // ---- §3.3 建站管理（可选加分）----
+  // 新增站点：返回新站 id；若同名+线路已存在返回 -1
+  int    addStation(const std::string &name, const std::string &line,
+                    const std::string &status = "开启");
+  // 删除站点：返回是否成功
+  bool   removeStation(const std::string &name, const std::string &line);
+  // 当前最大 id（用于自动分配新 id）
+  int    nextStationId() const;
 
   // ---- 辅助 ----
   // 解析一行 CSV（处理引号、逗号），返回字段数组

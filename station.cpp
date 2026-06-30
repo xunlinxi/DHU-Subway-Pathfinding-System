@@ -9,6 +9,21 @@
 #include <sstream>
 
 
+// 重建 id2idx_ / name2idx_ 索引（用于 load / addStation / removeStation 后同步）
+// 前向声明：在所有成员函数之前定义，避免在 loadFromCSV 等函数中引用不到
+static void rebuildStationsIndex(
+    const std::vector<Station>& stations,
+    std::unordered_map<int, size_t>& id2idx,
+    std::unordered_map<std::string, std::vector<size_t>>& name2idx) {
+  id2idx.clear();
+  name2idx.clear();
+  for (size_t i = 0; i < stations.size(); ++i) {
+    id2idx[stations[i].id] = i;
+    name2idx[stations[i].name].push_back(i);
+  }
+}
+
+
 // ---------- 静态工具：去除 UTF-8 BOM、首尾空白 ----------
 std::string StationManager::trim(const std::string &s) {
   size_t b = 0, e = s.size();
@@ -94,7 +109,7 @@ bool StationManager::loadFromCSV(const std::string &csvPath) {
     stations_.push_back(st);
   }
   fin.close();
-  rebuildIndexHelper(stations_, id2idx_, name2idx_);
+  rebuildStationsIndex(stations_, id2idx_, name2idx_);
   return true;
 }
 
@@ -275,8 +290,103 @@ bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
 
 // ---------- 是否关闭 ----------
 bool StationManager::isClosed(int id) const {
-  auto it = id2idx_.find(id);
-  if (it == id2idx_.end())
-    return true; // 不存在视为不可用
-  return stations_[it->second].status == "关闭";
+    auto it = id2idx_.find(id);
+    if (it == id2idx_.end()) return true;   // 不存在视为不可用
+    return stations_[it->second].status == "关闭";
+}
+
+// ============================================================
+//    §3.3 规范命名: showClosedStations / showStationsByLine
+// ============================================================
+void StationManager::showClosedStations(std::ostream& os) const {
+    auto closed = getClosedStations();
+    os << "  ==== 当前关闭的站点 ====\n";
+    if (closed.empty()) {
+        os << "  （无）\n";
+        return;
+    }
+    os << "  " << std::left
+       << std::setw(8)  << "ID"
+       << std::setw(20) << "站名"
+       << std::setw(10) << "线路"
+       << std::setw(8)  << "状态" << "\n";
+    os << "  " << std::string(46, '-') << "\n";
+    for (const auto& s : closed) {
+        os << "  " << std::left
+           << std::setw(8)  << s.id
+           << std::setw(20) << s.name
+           << std::setw(10) << s.line
+           << std::setw(8)  << s.status << "\n";
+    }
+    os << "  共 " << closed.size() << " 个关闭站点。\n";
+}
+
+void StationManager::showStationsByLine(const std::string& line, std::ostream& os) const {
+    auto sts = getStationsByLine(line);
+    os << "  ==== 线路 [" << line << "] 的所有站点 ====\n";
+    if (sts.empty()) {
+        os << "  （无）\n";
+        return;
+    }
+    os << "  " << std::left
+       << std::setw(8)  << "ID"
+       << std::setw(20) << "站名"
+       << std::setw(10) << "线路"
+       << std::setw(8)  << "状态" << "\n";
+    os << "  " << std::string(46, '-') << "\n";
+    for (const auto& s : sts) {
+        os << "  " << std::left
+           << std::setw(8)  << s.id
+           << std::setw(20) << s.name
+           << std::setw(10) << s.line
+           << std::setw(8)  << s.status << "\n";
+    }
+    os << "  共 " << sts.size() << " 个站点。\n";
+}
+
+// ============================================================
+//    §3.3 建站管理（可选加分）
+// ============================================================
+int StationManager::nextStationId() const {
+    int mx = 0;
+    for (const auto& s : stations_) if (s.id > mx) mx = s.id;
+    return mx + 1;
+}
+
+int StationManager::addStation(const std::string& name,
+                               const std::string& line,
+                               const std::string& status) {
+    // 1) 重名 + 同线路 视为已存在
+    auto same = getStationsByName(name);
+    for (const auto& s : same) {
+        if (s.line == line) return -1;
+    }
+    // 2) 分配新 id 并入库
+    Station st;
+    st.id     = nextStationId();
+    st.name   = name;
+    st.line   = line;
+    st.status = status;
+    stations_.push_back(st);
+    // 3) 重建索引
+    rebuildStationsIndex(stations_, id2idx_, name2idx_);
+    return st.id;
+}
+
+bool StationManager::removeStation(const std::string& name, const std::string& line) {
+    auto it = name2idx_.find(name);
+    if (it == name2idx_.end()) return false;
+    // 找到匹配 line 的下标
+    std::vector<size_t> toErase;
+    for (size_t idx : it->second) {
+        if (stations_[idx].line == line) toErase.push_back(idx);
+    }
+    if (toErase.empty()) return false;
+    // 从大到小删除
+    std::sort(toErase.rbegin(), toErase.rend());
+    for (size_t idx : toErase) {
+        stations_.erase(stations_.begin() + idx);
+    }
+    rebuildStationsIndex(stations_, id2idx_, name2idx_);
+    return true;
 }

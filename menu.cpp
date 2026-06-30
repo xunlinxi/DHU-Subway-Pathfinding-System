@@ -103,41 +103,34 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
 //                      主菜单
 // ============================================================
 void Menu::run() {
-  while (true) {
-    clearScreen();
-    std::cout << "========================================\n";
-    std::cout << "  上海地铁路径规划与管理系统\n";
-    std::cout << "  (Shanghai Metro Routing & Management)\n";
-    std::cout << "========================================\n";
-    std::cout << "  1. 站点管理\n";
-    std::cout << "  2. 路径查询\n";
-    std::cout << "  3. 受影响区域分析\n";
-    std::cout << "  4. 保存当前状态到 Station.csv\n";
-    std::cout << "  0. 退出\n";
-    std::cout << "========================================\n";
-    int ch = readInt("  请选择: ");
-    switch (ch) {
-    case 1:
-      stationMenu();
-      break;
-    case 2:
-      pathMenu();
-      break;
-    case 3:
-      impactMenu();
-      break;
-    case 4:
-      saveData();
-      pause();
-      break;
-    case 0:
-      std::cout << "  再见！\n";
-      return;
-    default:
-      std::cout << "  [提示] 无效选择。\n";
-      pause();
+    while (true) {
+        clearScreen();
+        std::cout << "========================================\n";
+        std::cout << "  上海地铁路径规划与管理系统\n";
+        std::cout << "  (Shanghai Metro Routing & Management)\n";
+        std::cout << "========================================\n";
+        std::cout << "  1. 站点管理\n";
+        std::cout << "  2. 路径查询\n";
+        std::cout << "  3. 受影响区域分析\n";
+        std::cout << "  4. 建站管理（添加 / 删除站点 / 加边）\n";
+        std::cout << "  5. 保存当前状态到 Station.csv\n";
+        std::cout << "  0. 退出\n";
+        std::cout << "========================================\n";
+        int ch = readInt("  请选择: ");
+        switch (ch) {
+            case 1: stationMenu();  break;
+            case 2: pathMenu();     break;
+            case 3: impactMenu();   break;
+            case 4: buildMenu();    break;
+            case 5: saveData();     pause(); break;
+            case 0:
+                std::cout << "  再见！\n";
+                return;
+            default:
+                std::cout << "  [提示] 无效选择。\n";
+                pause();
+        }
     }
-  }
 }
 
 // ============================================================
@@ -394,9 +387,90 @@ void Menu::saveData() {
   printHeader("保存当前状态");
   std::string path = readLine("  请输入保存路径（直接回车覆盖 Station.csv）: ");
   if (path.empty())
-    path = "Station.csv";
+    path = "data/Station.csv";
   if (sm_.saveCurrentToCSV(path))
     std::cout << "  [成功] 已保存到 " << path << "\n";
   else
     std::cout << "  [失败] 保存失败。\n";
+}
+
+// ============================================================
+//      §3.3 建站管理（可选加分项）
+// ============================================================
+void Menu::buildMenu() {
+  while (true) {
+    clearScreen();
+    printHeader("建站管理");
+    std::cout << "  1. 添加新站点\n";
+    std::cout << "  2. 删除站点\n";
+    std::cout << "  3. 手动添加一条边\n";
+    std::cout << "  0. 返回上一级\n";
+    int ch = readInt("  请选择: ");
+    switch (ch) {
+      case 1: addNewStation();          pause(); break;
+      case 2: removeExistingStation();   pause(); break;
+      case 3: addNewEdgeInteractive();  pause(); break;
+      case 0: return;
+      default: std::cout << "  [提示] 无效选择。\n"; pause();
+    }
+  }
+}
+
+// ---- 添加新站点 ----
+void Menu::addNewStation() {
+  printHeader("添加新站点");
+  std::string name = readLine("  请输入新站点名: ");
+  if (name.empty()) { std::cout << "  [取消] 名称不能为空。\n"; return; }
+  std::string line = readLine("  请输入所属线路（如 1号线）: ");
+  if (line.empty()) { std::cout << "  [取消] 线路不能为空。\n"; return; }
+  std::string st   = readLine("  状态 [开启/关闭]，默认开启: ");
+  if (st.empty()) st = "开启";
+  if (st != "开启" && st != "关闭") {
+    std::cout << "  [错误] 状态只能是 开启/关闭。\n"; return;
+  }
+  int newId = sm_.addStation(name, line, st);
+  if (newId < 0) {
+    std::cout << "  [失败] 已存在同名+同线路的站点。\n";
+    return;
+  }
+  std::cout << "  [成功] 已添加站点 ID=" << newId
+            << " (" << name << " / " << line << " / " << st << ")\n";
+  std::cout << "  [提示] 若需把新站点接入网络，请到『手动添加一条边』。\n";
+}
+
+// ---- 删除站点 ----
+void Menu::removeExistingStation() {
+  printHeader("删除站点");
+  int id = fuzzyPickStation("  请输入要删除的站点名（部分汉字可）: ");
+  if (id < 0) return;
+  const Station *s = sm_.findById(id);
+  if (!s) return;
+  std::cout << "  选中: " << s->name << " (" << s->line << ")\n";
+  int confirm = readInt("  确认删除? 1=是 0=否 : ");
+  if (confirm == 1) {
+    if (sm_.removeStation(s->name, s->line)) {
+      std::cout << "  [成功] 站点已删除（需重新加载图才能反映在路径中）。\n";
+      std::cout << "  [提示] 建议执行『手动添加一条边』或重启程序。\n";
+    } else {
+      std::cout << "  [失败] 删除失败。\n";
+    }
+  }
+}
+
+// ---- 手动添加边 ----
+void Menu::addNewEdgeInteractive() {
+  printHeader("手动添加一条边");
+  int u = fuzzyPickStation("  请输入起点站: ");
+  if (u < 0) return;
+  int v = fuzzyPickStation("  请输入终点站: ");
+  if (v < 0) return;
+  std::string line = readLine("  请输入所属线路（如 1号线）: ");
+  if (line.empty()) { std::cout << "  [取消] 线路不能为空。\n"; return; }
+  int t = readInt("  请输入通行时间（分钟，默认 3）: ", 3);
+  if (graph_.addEdge(u, v, line, t)) {
+    std::cout << "  [成功] 已添加 " << u << " -> " << v
+              << " (" << line << ", " << t << " min)\n";
+  } else {
+    std::cout << "  [失败] 起点或终点不存在。\n";
+  }
 }

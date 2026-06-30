@@ -22,9 +22,10 @@ struct Path {
   // 段线路：lines[i] 表示从 nodes[i] -> nodes[i+1] 所乘坐的线路
   std::vector<std::string> lines;
   // 统计
-  int totalTime = 0;   // 总耗时（分钟）
-  int transferCnt = 0; // 换乘次数
-  int stopCnt = 0;     // 途经站数（含起终点）
+  int totalTime = 0;       // 总耗时（分钟）
+  int transferCnt = 0;     // 换乘次数
+  int stopCnt = 0;         // 途经站数（含起终点 + 同名换乘拆分后的所有节点）
+  int actualStopCnt = 0;   // 实际经过站数（不含换乘拆分冗余）= stopCnt - transferCnt
   bool valid = false;
 
   // 路径签名：站点名序列 + 线路段序列，用于去重

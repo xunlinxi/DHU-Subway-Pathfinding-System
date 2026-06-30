@@ -42,6 +42,15 @@ public:
   void buildTransferEdges();
   // 一键完成：清空 + 加载同线边 + 建换乘边
   bool build(const std::string &edgeCsvPath);
+  // 重新构建：清空 + 重新加载同线边 + 重新建换乘边
+  // （用于 addStation / removeStation / Edge.csv 修改后刷新图结构）
+  void rebuild(const std::string &edgeCsvPath);
+
+  // ---- §3.3 建站管理配套 ----
+  // 手动添加一条有向边；两端点必须已在 StationManager 中
+  bool addEdge(int fromId, int toId, const std::string &line, int timeMin);
+  // 仅清空邻接表（保留 stationMgr_ 引用）
+  void clear();
 
   // ---- 查询 ----
   // 邻接表（id -> 出边列表）

@@ -106,6 +106,29 @@ bool Graph::build(const std::string &edgeCsvPath) {
   return true;
 }
 
+// ---------- 清空邻接表 ----------
+void Graph::clear() {
+  adj_.clear();
+  transferPairs_.clear();
+}
+
+// ---------- 重新构建 ----------
+void Graph::rebuild(const std::string &edgeCsvPath) {
+  clear();
+  loadEdgesFromCSV(edgeCsvPath);
+  buildTransferEdges();
+}
+
+// ---------- §3.3 建站管理：手动添加一条有向边 ----------
+bool Graph::addEdge(int fromId, int toId,
+                    const std::string &line, int timeMin) {
+  if (fromId < 0 || toId < 0) return false;
+  if (!stationMgr_.findById(fromId) || !stationMgr_.findById(toId))
+    return false;
+  addDirectedEdge(adj_, fromId, toId, line, timeMin);
+  return true;
+}
+
 // ---------- 同线邻居 ----------
 // 返回与 id 在同一条线路上、由原始 Edge.csv 直接相连的前后站
 std::vector<int> Graph::sameLineNeighbors(int id) const {

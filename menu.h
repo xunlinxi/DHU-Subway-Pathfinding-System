@@ -36,18 +36,24 @@ private:
   int fuzzyPickStation(const std::string &prompt);
 
   // ---------- 菜单 ----------
-  void mainMenu();
-  void stationMenu(); // 站点管理
-  void pathMenu();    // 路径查询
-  void impactMenu();  // 受影响分析
+    void mainMenu();
+    void stationMenu();   // 站点管理
+    void pathMenu();      // 路径查询
+    void impactMenu();    // 受影响分析
+    void buildMenu();     // §3.3 建站管理（可选加分）
 
-  // ---------- 业务 ----------
-  void showClosedStations();
-  void showLineStations();
-  void toggleOneStation();
-  void batchUpdateFromCSV();
-  void restoreInitial();
-  void runImpactAnalysis();
-  void runPathQuery(int mode); // 0=time, 1=transfer, 2=K-time, 3=K-transfer
-  void saveData();
+    // ---------- 业务 ----------
+    void showClosedStations();
+    void showLineStations();
+    void toggleOneStation();
+    void batchUpdateFromCSV();
+    void restoreInitial();
+    void runImpactAnalysis();
+    void runPathQuery(int mode);  // 0=time, 1=transfer, 2=K-time, 3=K-transfer
+    void saveData();
+
+    // §3.3 建站管理
+    void addNewStation();
+    void removeExistingStation();
+    void addNewEdgeInteractive();
 };

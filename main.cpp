@@ -15,10 +15,11 @@
 #include <windows.h>
 #endif
 
-// 数据文件路径（默认与可执行文件同目录）
-const std::string STATION_CSV = "Station.csv";
-const std::string STATION_INIT = "Station_init.csv";
-const std::string EDGE_CSV = "Edge.csv";
+// 数据文件路径（按 §3.5 项目结构放在 data/ 子目录下）
+const std::string STATION_CSV   = "data/Station.csv";
+const std::string STATION_INIT  = "data/Station_init.csv";
+const std::string EDGE_CSV      = "data/Edge.csv";
+const std::string UPDATE_CSV    = "data/update_station_status.csv";
 
 int main() {
 #ifdef _WIN32

@@ -36,7 +36,7 @@ std::string Path::toPrettyString(const StationManager &sm) const {
   };
   if (nodes.size() == 1) {
     std::ostringstream oss;
-    oss << nameOf(nodes[0]) << "\n  总耗时: 0 分钟 | 换乘: 0 次 | 途经: 1 站";
+    oss << nameOf(nodes[0]) << "\n  总耗时: 0 分钟 | 换乘: 0 次 | 途经: 1 站 | 实际经过: 1 站";
     return oss.str();
   }
   std::ostringstream oss;
@@ -48,7 +48,8 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     oss << " -> " << nameOf(nodes[j]) << "(" << lines[j - 1] << ")";
   }
   oss << "\n  总耗时: " << totalTime << " 分钟 | 换乘: " << transferCnt
-      << " 次 | 途经: " << stopCnt << " 站";
+      << " 次 | 途经: " << stopCnt << " 站 | 实际经过: "
+      << actualStopCnt << " 站";
   return oss.str();
 }
 
@@ -57,8 +58,10 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
   p.totalTime = 0;
   p.transferCnt = 0;
   p.stopCnt = (int)p.nodes.size();
-  if (p.nodes.size() <= 1)
+  if (p.nodes.size() <= 1) {
+    p.actualStopCnt = p.stopCnt;
     return;
+  }
   for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
     int u = p.nodes[i], v = p.nodes[i + 1];
     for (const auto &e : g.neighbors(u)) {
@@ -70,6 +73,9 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
     if (i >= 1 && p.lines[i] != p.lines[i - 1])
       ++p.transferCnt;
   }
+  // 实际经过站数 = 总节点数 - 因换乘拆分多算的节点
+  // 每次换乘会把同一个"换乘站"拆成两个 id 节点；因此要去掉冗余
+  p.actualStopCnt = p.stopCnt - p.transferCnt;
 }
 
 // ============================================================
