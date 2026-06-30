@@ -74,6 +74,7 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+test_auto.cpp
 
 # ---------- IDE / 编辑器 ----------
 .vscode/
