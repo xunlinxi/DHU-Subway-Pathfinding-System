@@ -239,6 +239,44 @@ StationManager::getStationsByLine(const std::string &line) const {
   return res;
 }
 
+// ---------- 当前所有线路列表 ----------
+std::vector<std::string> StationManager::getAllLines() const {
+  std::vector<std::string> lines;
+  std::unordered_set<std::string> seen;
+  for (const auto &st : stations_) {
+    if (seen.insert(st.line).second)
+      lines.push_back(st.line);
+  }
+
+  auto lineOrder = [](const std::string &line) {
+    int value = 0;
+    bool hasDigit = false;
+    for (unsigned char ch : line) {
+      if (std::isdigit(ch)) {
+        hasDigit = true;
+        value = value * 10 + (ch - '0');
+      } else if (hasDigit) {
+        break;
+      }
+    }
+    return hasDigit ? value : -1;
+  };
+
+  std::sort(lines.begin(), lines.end(),
+            [&](const std::string &a, const std::string &b) {
+              int aOrder = lineOrder(a);
+              int bOrder = lineOrder(b);
+              bool aNumbered = aOrder >= 0;
+              bool bNumbered = bOrder >= 0;
+              if (aNumbered != bNumbered)
+                return aNumbered > bNumbered;
+              if (aNumbered && aOrder != bOrder)
+                return aOrder < bOrder;
+              return a < b;
+            });
+  return lines;
+}
+
 // ---------- 切换单个站点状态 ----------
 bool StationManager::setStationStatus(const std::string &name,
                                       const std::string &line,

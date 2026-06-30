@@ -46,6 +46,8 @@ public:
   std::vector<Station> getClosedStations() const;
   // 获取指定线路上的所有站点（按 id 升序）
   std::vector<Station> getStationsByLine(const std::string &line) const;
+  // 获取当前数据中的所有地铁线路名称
+  std::vector<std::string> getAllLines() const;
 
   // ---- 状态修改类 ----
   // 关闭 / 开启 指定 (name, line) 的站点

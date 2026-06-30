@@ -244,13 +244,25 @@ void Menu::restoreInitial() {
 void Menu::showLineStations() {
   clearScreen();
   std::cout << "--- 显示线路站点信息 ---\n";
-  std::string raw = readLine("  请输入要查询的线路编号 (1-20)：");
+  auto allLines = sm_.getAllLines();
+  if (allLines.empty()) {
+    std::cout << "  [提示] 当前没有可查询的线路数据。\n";
+    return;
+  }
+
+  std::cout << "  当前可查询的地铁线路有：\n";
+  for (size_t i = 0; i < allLines.size(); ++i) {
+    std::cout << "  " << (i + 1) << ". " << allLines[i] << "\n";
+  }
+
+  std::string raw = readLine("  请输入要查询的地铁线路（如：1号线、2号线、浦江线）：");
   if (raw.empty()) return;
-  std::string line = normalizeLineName(raw);
+  std::string line = normalizeLineName(StationManager::trim(raw));
 
   auto sts = sm_.getStationsByLine(line);
   if (sts.empty()) {
-    std::cout << "  [提示] 没有该线路的站点，请检查线路编号。\n";
+    std::cout << "  [提示] 未找到线路 [" << line
+              << "]，请输入上方列出的地铁线路名称。\n";
     return;
   }
   std::cout << "  " << line << " 共有 " << sts.size() << " 个站点：\n";
