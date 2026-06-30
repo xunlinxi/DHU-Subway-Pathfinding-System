@@ -26,7 +26,11 @@ std::string Path::signature() const {
   return s;
 }
 
-// 可视化输出：起点(线路) -> ... -> 换乘站(线路) 换乘至 [新线路] -> ... -> 终点
+// 可视化输出：
+// 起点[线路]：
+// 起点 -> ... -> 换乘站
+// 站内换乘至[新线路]
+// 换乘站 -> ... -> 终点
 std::string Path::toPrettyString(const StationManager &sm) const {
   if (!valid || nodes.empty())
     return "[无效路径]";
@@ -34,19 +38,40 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     const Station *s = sm.findById(id);
     return s ? s->name : std::string("?");
   };
+  auto lineOf = [&](int id) {
+    const Station *s = sm.findById(id);
+    return s ? s->line : std::string("?");
+  };
+
+  std::string firstLine = !lines.empty() ? lines[0] : lineOf(nodes[0]);
+
   if (nodes.size() == 1) {
     std::ostringstream oss;
-    oss << nameOf(nodes[0]) << "\n  总耗时: 0 分钟 | 换乘: 0 次 | 途经: 1 站 | 实际经过: 1 站";
+    oss << nameOf(nodes[0]) << "[" << firstLine << "]：\n";
+    oss << nameOf(nodes[0]);
+    oss << "\n  总耗时: 0 分钟 | 换乘: 0 次 | 途经: 1 站 | 实际经过: 1 站";
     return oss.str();
   }
+
   std::ostringstream oss;
-  oss << nameOf(nodes[0]) << "(" << lines[0] << ")";
-  for (int j = 1; j < (int)nodes.size(); ++j) {
-    if (j - 1 >= 1 && lines[j - 1] != lines[j - 2]) {
-      oss << " 换乘至 [" << lines[j - 1] << "]";
+  auto appendSegment = [&](int startIdx, int endIdx) {
+    for (int i = startIdx; i <= endIdx; ++i) {
+      if (i > startIdx)
+        oss << " -> ";
+      oss << nameOf(nodes[i]);
     }
-    oss << " -> " << nameOf(nodes[j]) << "(" << lines[j - 1] << ")";
+  };
+
+  oss << nameOf(nodes[0]) << "[" << firstLine << "]：\n";
+  int segmentStart = 0;
+  for (int i = 1; i < (int)lines.size(); ++i) {
+    if (lines[i] == lines[i - 1])
+      continue;
+    appendSegment(segmentStart, i - 1);
+    oss << "\n站内换乘至[" << lines[i] << "]\n";
+    segmentStart = i;
   }
+  appendSegment(segmentStart, (int)nodes.size() - 1);
   oss << "\n  总耗时: " << totalTime << " 分钟 | 换乘: " << transferCnt
       << " 次 | 途经: " << stopCnt << " 站 | 实际经过: "
       << actualStopCnt << " 站";
