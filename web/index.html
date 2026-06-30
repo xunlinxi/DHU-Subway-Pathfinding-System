@@ -1105,6 +1105,7 @@ document.querySelectorAll('#k-switch button').forEach(b => {
   };
 });
 
+// 路径查询：调用后端 API，渲染时间线 + 文本路径（单条 / K 条候选）
 $('btn-query').onclick = async () => {
   const start     = $('start-name').value.trim();
   const startLine = $('start-line').value.trim();
@@ -1179,6 +1180,7 @@ $('btn-clear').onclick = () => { $('query-result').innerHTML = ''; };
 /* =================================================================
    Tab 2: 站点管理
    ================================================================= */
+// 数据加载：拉取全部站点 + 所有线路名，填充下拉与列表
 async function loadStations() {
   const list = $('station-list');
   showLoading(list, '正在加载站点列表...');
@@ -1246,6 +1248,7 @@ $('impact-name').oninput = () => {
   sel.innerHTML = '<option value="">（请选择）</option>' + matchedLines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
   if (cur && matchedLines.includes(cur)) sel.value = cur;
 };
+// 站点数据工具：自动补全列表 / 统计 / 线路排序 / 线路过滤
 function updateDatalist() {
   const names = [...new Set(allStations.map(s => s.name))];
   $('stations-datalist').innerHTML   = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
@@ -1283,6 +1286,7 @@ function updateLineFilter() {
     lines.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join('');
   if (cur) $('station-line-filter').value = cur;
 }
+// 渲染站点列表：按线路分组、组内按 ID 排序、标注换乘信息
 function renderStations() {
   const el = $('station-list');
   const kw   = $('station-search').value.trim().toLowerCase();
@@ -1335,6 +1339,7 @@ $('station-filter').onchange    = renderStations;
 $('station-line-filter').onchange= renderStations;
 $('btn-refresh').onclick        = loadStations;
 
+// 切换单个站点状态并实时同步后端
 async function toggleStation(name, line, sw) {
   sw.style.pointerEvents = 'none';
   const newStatus = sw.classList.contains('on') ? '关闭' : '开启';
@@ -1412,6 +1417,7 @@ $('btn-tx-fuzzy').onclick = () => {
    ================================================================= */
 $('btn-line-close').onclick = async () => doLineToggle('close');
 $('btn-line-open').onclick  = async () => doLineToggle('open');
+// 线路停运 / 恢复
 async function doLineToggle(action) {
   const line = $('line-select').value;
   if (!line) { toast('请先选择线路', 'warn'); return; }
@@ -1442,6 +1448,7 @@ function updateLineStatus() {
 
 $('btn-net-close').onclick = () => doNetToggle('close');
 $('btn-net-open').onclick  = () => doNetToggle('open');
+// 全网停运 / 恢复
 async function doNetToggle(action) {
   if (!confirm(`确认 ${action==='close'?'停运全网所有站点':'恢复全网所有站点'}?`)) return;
   try {
@@ -1503,6 +1510,7 @@ $('btn-batch-file').onclick = async () => {
 /* =================================================================
    Tab 4: 网络分析
    ================================================================= */
+// 受关闭影响分析：波及线路 + 同线相邻站点
 $('btn-impact').onclick = async () => {
   const name  = $('impact-name').value.trim();
   const line  = $('impact-line').value;
@@ -1543,6 +1551,7 @@ $('btn-impact').onclick = async () => {
   }
 };
 
+// 网络连通性分析：开放/关闭数、连通分量、分量站点明细
 $('btn-network').onclick = async () => {
   const out = $('network-result');
   showLoading(out, '正在分析连通性...');

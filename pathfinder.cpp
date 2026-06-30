@@ -1,7 +1,3 @@
-// =============================================================
-//  pathfinder.cpp
-//  核心算法实现：Dijkstra / Yen's K 短路 / 影响分析
-// =============================================================
 #include "pathfinder.h"
 #include <algorithm>
 #include <climits>
@@ -13,10 +9,6 @@
 namespace {
 bool isTransferEdgeLine(const std::string &line) { return line == "换乘"; }
 } // namespace
-
-// ============================================================
-//                      Path 辅助方法
-// ============================================================
 
 // 路径签名：站点序列 + 段线路序列，用于去重
 std::string Path::signature() const {
@@ -34,11 +26,7 @@ std::string Path::signature() const {
   return s;
 }
 
-// 可视化输出：
-// 起点[线路]：
-// 起点 -> ... -> 换乘站
-// 站内换乘至[新线路]
-// 换乘站 -> ... -> 终点
+// 可视化输出：起点[线路] -> 途经站 -> 换乘站 换乘至[新线路] -> 终点
 std::string Path::toPrettyString(const StationManager &stationManager) const {
   if (!valid || nodes.empty())
     return "[无效路径]";
@@ -50,7 +38,6 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
     const Station *s = stationManager.findById(id);
     return s ? s->line : std::string("?");
   };
-  // 获取方向标签（仅4号线显示内圈/外圈）
   auto dirOf = [&](int edgeIdx) -> std::string {
     if (edgeIdx < 0 || edgeIdx >= (int)directions.size())
       return "";
@@ -105,7 +92,6 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
         lines[startNodeIdx] == "4号线" &&
         (directions[startNodeIdx] == "内圈" ||
          directions[startNodeIdx] == "外圈")) {
-      // 4 号线是环线, 显示方向: "4号线·内圈方向" / "4号线·外圈方向"
       return base + "·" + directions[startNodeIdx] + "方向";
     }
     return base;
@@ -123,7 +109,6 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
     std::string d = dirOf(i);
     oss << "\n站内换乘至[" << nodeLines[i];
     if (!d.empty())
-      // 4 号线环线方向: "4号线 (内圈方向)" / "4号线 (外圈方向)"
       oss << " (" << d << "方向)";
     oss << "]\n";
     segmentStart = i;
@@ -135,7 +120,7 @@ std::string Path::toPrettyString(const StationManager &stationManager) const {
   return oss.str();
 }
 
-// 根据 nodes/lines 重新计算统计
+// 根据 nodes/lines 重新计算 totalTime / transferCnt / stopCnt
 void PathFinder::finalizeStats(Path &p, const Graph &g) {
   p.totalTime = 0;
   p.transferCnt = 0;
@@ -156,9 +141,6 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
         p.lines[i] != p.lines[i - 1])
       ++p.transferCnt;
   }
-  // 实际经过站数 = 总节点数 - 因换乘拆分多算的节点。
-  // 这里按“连续同名站点”去重，既覆盖普通换乘，也覆盖起点虚拟换乘
-  // （起点虚拟换乘不计入 transferCnt，但仍会多出一个同名节点）。
   int duplicateTransferNodes = 0;
   const StationManager &stationManager = g.stationManager();
   for (int i = 1; i < (int)p.nodes.size(); ++i) {
@@ -170,21 +152,7 @@ void PathFinder::finalizeStats(Path &p, const Graph &g) {
   p.actualStopCnt = p.stopCnt - duplicateTransferNodes;
 }
 
-// ============================================================
-//                    Dijkstra 核心
-// ============================================================
-//
-// 设计要点：
-//   状态 = (stationId, arrivedLine)，因为同一站位于不同线路时
-//   "已发生的换乘次数"不同；dist[state] = (主键, 副键)。
-//   - OptGoal::TIME     → 主键=time, 副键=transfer
-//   - OptGoal::TRANSFER → 主键=transfer, 副键=time
-//   剪枝：
-//     (1) 关闭站点直接跳过
-//     (2) 同一 (id, line) 状态，更优才入队
-//     (3) constrained 模式可禁用特定边 / 节点
-// ============================================================
-
+// Dijkstra 核心：状态 = (stationId, arrivedLine)，双键代价 + 多重剪枝
 namespace {
 struct StateKey {
   int id;
@@ -243,10 +211,9 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       continue;
     if (cur.cost1 > it->second.first ||
         (cur.cost1 == it->second.first && cur.cost2 > it->second.second)) {
-      continue; // 过期
+      continue;
     }
     if (cur.id == endId) {
-      // 回溯路径
       Path p;
       p.valid = true;
       std::vector<int> revNodes;
@@ -278,10 +245,7 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
         }
         p.directions.push_back(direction);
       }
-      // 统计
       PathFinder::finalizeStats(p, graph);
-      // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
-      // 状态更稳）
       if (goal == OptGoal::TIME) {
         p.totalTime = cur.cost1;
         p.transferCnt = cur.cost2;
@@ -328,7 +292,7 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
   return Path{};
 }
 
-// ---------- 对外封装 ----------
+// 公共接口：单条最优路径（时间 / 换乘），起点换乘免费
 Path PathFinder::dijkstraFull(int startId, int endId, OptGoal goal) {
   return dijkstraCore(startId, endId, goal, graph_, stationManager_, nullptr,
                       -1, -1, "", true);
@@ -341,9 +305,6 @@ Path PathFinder::dijkstraConstrained(
                       &blockedNodes, bannedFrom, bannedTo, bannedLine, false);
 }
 
-// ============================================================
-//                     1) 单条最优
-// ============================================================
 Path PathFinder::findBestByTime(int startId, int endId) {
   return dijkstraFull(startId, endId, OptGoal::TIME);
 }
@@ -351,21 +312,7 @@ Path PathFinder::findBestByTransfer(int startId, int endId) {
   return dijkstraFull(startId, endId, OptGoal::TRANSFER);
 }
 
-// ============================================================
-//        2) K 短路（Yen 算法）
-// ============================================================
-//
-//   步骤：
-//   1) 跑一次完整 Dijkstra 得到 P1
-//   2) 对 P1 中每个"偏离点" i：
-//        a) 取 P1[0..i] 为 root path
-//        b) blocked = P1[0..i-1]（不允许 spur path 绕回 root 前段）
-//        c) 禁用 P1 在 i 处的边 (P1[i] -> P1[i+1], P1.lines[i])
-//        d) 从 P1[i] 出发跑 constrained Dijkstra → spur path
-//        e) total = root + spur 合成
-//   3) 把所有候选按目标函数排序，依次取出前 K 个
-//   4) 用 signature() 去重
-// ============================================================
+// Yen K 短路：偏离点 + 受限 Dijkstra + signature 去重
 namespace {
 struct PathComparator {
   OptGoal goal;
@@ -415,7 +362,6 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
       if (!spur.valid)
         continue;
 
-      // 拼接：root 前 i 站 + spur 完整路径
       Path total;
       for (int j = 0; j < i; ++j)
         total.nodes.push_back(prev.nodes[j]);
@@ -427,7 +373,6 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
         total.nodes.push_back(spur.nodes[j]);
       for (int j = 0; j < (int)spur.lines.size(); ++j)
         total.lines.push_back(spur.lines[j]);
-      // 方向信息
       for (int j = 0; j < i && j < (int)prev.directions.size(); ++j)
         total.directions.push_back(prev.directions[j]);
       for (int j = 0; j < (int)spur.directions.size(); ++j)
@@ -460,6 +405,7 @@ static std::vector<Path> kShortestYen(int startId, int endId, int K,
   return result;
 }
 
+// 公共接口：K 短路（时间 / 换乘），基于 Yen 算法
 std::vector<Path> PathFinder::findKShortestByTime(int startId, int endId,
                                                   int K) {
   return kShortestYen(startId, endId, K, OptGoal::TIME, *this);
@@ -469,9 +415,7 @@ std::vector<Path> PathFinder::findKShortestByTransfer(int startId, int endId,
   return kShortestYen(startId, endId, K, OptGoal::TRANSFER, *this);
 }
 
-// =============================================================
-//                  3) 受影响区域分析
-// =============================================================
+// 受影响区域分析：同线相邻站点 + 受影响线路
 PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
                                                  const std::string &line) {
   ImpactInfo info;
@@ -497,8 +441,6 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
     }
     info.sameLineAdj.swap(dedupAdj);
   }
-  // 受影响线路：站点本身所在线路 + 换乘站点的其他线路
-  // (关闭换乘站会切断这些线路之间的换乘通道)
   std::set<std::string> affectedSet;
   affectedSet.insert(line);
   for (const auto &s : stations) {
@@ -510,15 +452,12 @@ PathFinder::ImpactInfo PathFinder::analyzeImpact(const std::string &name,
   return info;
 }
 
-// ============================================================
-//                  4) 网络连通性分析 (DFS)
-// ============================================================
+// 网络连通性分析：DFS 统计开放站点连通分量
 PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
   NetworkInfo ninfo;
   ninfo.totalOpenStations = 0;
   ninfo.totalClosedStations = 0;
 
-  // 收集所有开放站点的 id
   std::unordered_set<int> openIds;
   for (const auto &st : stationManager_.allStations()) {
     if (st.status == "开启") {
@@ -535,7 +474,6 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
     return ninfo;
   }
 
-  // DFS 遍历连通分量
   std::unordered_set<int> visited;
   const auto &adj = graph_.adjList();
 
@@ -547,16 +485,15 @@ PathFinder::NetworkInfo PathFinder::analyzeNetworkConnectivity() {
           return;
         for (const auto &e : adj[cur]) {
           if (stationManager_.isClosed(e.to))
-            continue; // 跳过关闭站点
+            continue;
           if (e.line == "换乘")
-            continue; // 换乘边不用于连通性（由同线边传递）
+            continue;
           if (visited.count(e.to))
             continue;
           dfs(e.to, comp);
         }
       };
 
-  // 对开放站点也遍历换乘邻居（保证跨线路连通性也被计算）
   auto dfsFull = [&](int cur, std::vector<int> &comp) {
     std::stack<int> stk;
     stk.push(cur);

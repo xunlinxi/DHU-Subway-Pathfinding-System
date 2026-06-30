@@ -1,20 +1,4 @@
-// =============================================================
-//  main.cpp
-//  上海地铁路径规划与管理系统 —— 主程序入口
-//
-//  使用方式:
-//    1) 交互式菜单 (默认):
-//         g++ -std=c++11 -O2 -o metro.exe main.cpp
-//         .\metro.exe
-//
-//    2) 一键演示模式 (跑预设测试用例, 不需要交互):
-//         .\metro.exe --demo
-//
-//    3) 传统多文件编译 (如不需要 unity build):
-//         g++ -std=c++11 -O2 -DNO_UNITY_BUILD -o metro.exe main.cpp station.cpp
-//         graph.cpp pathfinder.cpp menu.cpp
-//         .\metro.exe
-// =============================================================
+// main.cpp - 上海地铁路径规划与管理系统主程序入口
 #include "graph.h"
 #include "menu.h"
 #include "pathfinder.h"
@@ -28,16 +12,12 @@
 #include <windows.h>
 #endif
 
-// 数据文件路径（按 §3.5 项目结构放在 data/ 子目录下）
 const std::string STATION_CSV = "data/Station.csv";
 const std::string STATION_INIT = "data/Station_init.csv";
 const std::string EDGE_CSV = "data/Edge.csv";
 const std::string UPDATE_CSV = "data/update_station_status.csv";
 
-// =====================================================================
-//   一键演示模式：跑一组预设测试用例，覆盖核心功能
-//   用于：① 验收 ② 老师演示 ③ 写实验报告时直接截图
-// =====================================================================
+// 一键演示模式：跑预设测试用例，覆盖核心功能
 static int runDemo() {
 #ifdef _WIN32
   SetConsoleOutputCP(CP_UTF8);
@@ -47,7 +27,6 @@ static int runDemo() {
   std::cout << "   [演示模式] 上海地铁核心功能自动化测试\n";
   std::cout << "========================================\n\n";
 
-  // 1) 加载
   StationManager sm;
   if (!sm.loadFromCSV(STATION_CSV)) {
     std::cerr << "[错误] 加载 " << STATION_CSV << " 失败！\n";
@@ -66,7 +45,6 @@ static int runDemo() {
 
   PathFinder pf(graph, sm);
 
-  // ---- 工具：按 name 拿第一个匹配 id（同名换乘站优先 1 号线） ----
   auto pickId = [&](const std::string &name,
                     const std::string &preferLine = "") {
     auto sts = sm.getStationsByName(name);
@@ -80,7 +58,6 @@ static int runDemo() {
     return sts[0].id;
   };
 
-  // ---- 测试用例集合（按运行效果图 §3.8.2）----
   struct Case {
     std::string title;
     std::string s;
@@ -118,7 +95,6 @@ static int runDemo() {
     std::cout << p.toPrettyString(sm) << "\n\n";
   }
 
-  // ---- K 短路演示 ----
   std::cout << "===== 【K 短路】莘庄 -> 陆家嘴 (前 3 条, 按时间排序) =====\n";
   int sId = pickId("莘庄", "1号线");
   int eId = pickId("陆家嘴", "2号线");
@@ -129,14 +105,12 @@ static int runDemo() {
   }
   std::cout << "\n";
 
-  // ---- 边界测试：关闭 人民广场(1号线) 后自动绕行 ----
   std::cout << "===== 【边界】关闭 人民广场(1号线) 后, 莘庄 -> 陆家嘴 =====\n";
   sm.setStationStatus("人民广场", "1号线", "关闭");
   Path p2 = pf.findBestByTime(sId, eId);
   std::cout << p2.toPrettyString(sm) << "\n\n";
-  sm.restoreInitialStatus(); // 恢复
+  sm.restoreInitialStatus();
 
-  // ---- 受影响区域分析 ----
   std::cout << "===== 【受影响分析】如果关闭 世纪公园 (2号线) =====\n";
   auto info = pf.analyzeImpact("世纪公园", "2号线");
   std::cout << "  站点: " << info.name << " (" << info.line << ")\n";
@@ -149,16 +123,13 @@ static int runDemo() {
   return 0;
 }
 
-// =====================================================================
-//   主入口
-// =====================================================================
+// 程序主入口：解析参数，加载数据，启动菜单或演示
 int main(int argc, char **argv) {
 #ifdef _WIN32
   SetConsoleOutputCP(CP_UTF8);
   SetConsoleCP(CP_UTF8);
 #endif
 
-  // ---- 命令行参数解析 ----
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
     if (a == "--demo" || a == "-d")
@@ -176,7 +147,6 @@ int main(int argc, char **argv) {
   std::cout << "  上海地铁路径规划与管理系统 启动中...\n";
   std::cout << "========================================\n";
 
-  // 1) 加载站点
   StationManager sm;
   if (!sm.loadFromCSV(STATION_CSV)) {
     std::cerr << "[错误] 加载 " << STATION_CSV << " 失败！\n";
@@ -191,7 +161,6 @@ int main(int argc, char **argv) {
     std::cout << "[OK] 加载初始状态快照\n";
   }
 
-  // 2) 构建图
   Graph graph(sm);
   if (!graph.build(EDGE_CSV)) {
     std::cerr << "[错误] 构建图失败！\n";
@@ -199,19 +168,16 @@ int main(int argc, char **argv) {
   }
   std::cout << "[OK] 图构建完成，共 " << graph.nodeCount() << " 个顶点\n";
 
-  // 3) 路径查找器
   PathFinder pf(graph, sm);
 
-  // 4) 启动菜单
   Menu menu(sm, graph, pf);
   menu.run();
-  // 退出主菜单后, 等待用户按回车再关闭窗口, 避免日志/截图被错过
+
   std::cout << "\n========================================\n";
   std::cout << "  感谢使用, 再见!\n";
   std::cout << "  >>> 按回车键退出程序...\n";
   std::cout << "========================================\n";
 #ifdef _WIN32
-  // 显式刷新 stdio 缓冲, 确保上面几行一定先打印出来
   std::cout.flush();
 #endif
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
@@ -219,11 +185,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-// =====================================================================
-//   Unity Build
-//   把所有 .cpp 直接 include 进来，使 `g++ main.cpp` 一次编译即可。
-//   传统多文件编译请加 -DNO_UNITY_BUILD（见本文件顶部说明）。
-// =====================================================================
+// Unity Build: 把所有 .cpp 直接 include 进来，使 g++ main.cpp 一次编译即可
 #ifndef NO_UNITY_BUILD
 #include "graph.cpp"
 #include "menu.cpp"

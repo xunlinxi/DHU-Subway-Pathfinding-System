@@ -1,31 +1,4 @@
-// =============================================================
-//  main_web.cpp
-//  上海地铁路径规划与管理系统 —— Web 入口 (与 main.cpp 互不影响)
-//
-//  本文件不包含任何控制台交互菜单, 仅接收命令行参数,
-//  调用现有 StationManager / Graph / PathFinder,
-//  把结果以结构化文本输出到 stdout 供 Python 解析.
-//
-//  用法 (由 server.py 调用, 手动调试也行):
-//    main_web query       <起点> <起点线路> <终点> <终点线路>
-//    main_web qtransfer   <起点> <起点线路> <终点> <终点线路>
-//    main_web ktime       <起点> <起点线路> <终点> <终点线路> [K=3]
-//    main_web ktransfer   <起点> <起点线路> <终点> <终点线路> [K=3]
-//    main_web toggle      <站点名> <线路> <开启|关闭>
-//    main_web list_all
-//    main_web list_line   <线路>
-//    main_web list_closed
-//    main_web reset
-//    main_web batch_update [path]
-//    main_web help
-//
-//  编译 (Unity Build, 一行搞定):
-//    g++ -std=c++11 -O2 -o main_web.exe main_web.cpp
-//
-//  显式多文件编译 (更直观):
-//    g++ -std=c++11 -O2 -o main_web.exe main_web.cpp station.cpp graph.cpp
-//    pathfinder.cpp
-// =============================================================
+// main_web.cpp - Web 入口，接收命令行参数，输出结构化文本供 Python 解析
 #include "graph.h"
 #include "pathfinder.h"
 #include "station.h"
@@ -40,14 +13,11 @@
 #include <windows.h>
 #endif
 
-// ---------------- 数据路径 (与 main.cpp 一致) ----------------
 static const std::string STATION_CSV = "data/Station.csv";
 static const std::string STATION_INIT = "data/Station_init.csv";
 static const std::string EDGE_CSV = "data/Edge.csv";
 
-// ---------------- Windows 编码兼容 ----------------
-// Windows 的 argv[] 按系统 ANSI 代码页 (中文系统 = GBK/CP936) 解码字节流,
-// 而程序内部字符串统一按 UTF-8 处理. 此函数把 GBK 字节转为 UTF-8 std::string.
+// Windows argv 按 ANSI 代码页解码，转 UTF-8 避免中文乱码
 static std::string ansiToUtf8(const char *ansi) {
   if (!ansi || !*ansi)
     return std::string(ansi ? ansi : "");
@@ -72,7 +42,7 @@ static std::string ansiToUtf8(const char *ansi) {
 #endif
 }
 
-// ---------------- 输出辅助 ----------------
+// 输出辅助：协议首行 OK/ERR
 static void emitOK() { std::cout << "OK\n"; }
 static void emitErr(const std::string &msg) {
   std::cout << "ERR\nMESSAGE=" << msg << "\n";
@@ -90,7 +60,7 @@ static void emitPath(const Path &p, const StationManager &sm) {
             << "PRETTY_END\n";
 }
 
-// 输出多条路径 (K 短路)
+// 输出多条路径（K 短路）
 static void emitPaths(const std::vector<Path> &paths,
                       const StationManager &sm) {
   std::cout << "COUNT=" << (int)paths.size() << "\n";
@@ -110,7 +80,7 @@ static void emitPaths(const std::vector<Path> &paths,
   }
 }
 
-// ---------------- ID 解析辅助 ----------------
+// 按名称+线路定位站点 id
 static int findStationId(const StationManager &sm, const std::string &name,
                          const std::string &line) {
   auto sts = sm.getStationsByName(name);
@@ -124,7 +94,7 @@ static int findStationId(const StationManager &sm, const std::string &name,
   return -1;
 }
 
-// ---------------- 命令实现 ----------------
+// 单条路径查询（time / transfer）
 static int cmdSingleQuery(StationManager &sm, PathFinder &pf,
                           const std::string &start,
                           const std::string &startLine, const std::string &end,
@@ -165,6 +135,7 @@ static int cmdSingleQuery(StationManager &sm, PathFinder &pf,
   return 0;
 }
 
+// K 短路查询（time / transfer）
 static int cmdKQuery(StationManager &sm, PathFinder &pf,
                      const std::string &start, const std::string &startLine,
                      const std::string &end, const std::string &endLine, int K,
@@ -208,6 +179,7 @@ static int cmdKQuery(StationManager &sm, PathFinder &pf,
   return 0;
 }
 
+// 切换站点状态并自动落盘
 static int cmdToggle(StationManager &sm, const std::string &name,
                      const std::string &line, const std::string &status) {
   if (status != "开启" && status != "关闭") {
@@ -219,7 +191,6 @@ static int cmdToggle(StationManager &sm, const std::string &name,
     emitErr("更新失败, 站点不存在: " + name + " (" + line + ")");
     return 0;
   }
-  // 自动落盘, 保持磁盘与内存一致
   sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
   std::cout << "NAME=" << name << "\n"
@@ -229,6 +200,7 @@ static int cmdToggle(StationManager &sm, const std::string &name,
   return 0;
 }
 
+// 站点列表查询命令（全部 / 按线路 / 仅关闭）
 static int cmdListAll(const StationManager &sm) {
   emitOK();
   int closedCount = 0;
@@ -278,20 +250,18 @@ static int cmdListClosed(const StationManager &sm) {
   return 0;
 }
 
+// 恢复初始状态并落盘
 static int cmdReset(StationManager &sm) {
-  // 先把所有可变副作用做完, 最后再 emitOK
-  // (避免 StationManager 内部 print 的中文行污染协议头)
-  sm.restoreInitialStatusSilent(); // 静默版, 不打印 [恢复] 行
+  sm.restoreInitialStatusSilent();
   sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
   std::cout << "MESSAGE=已恢复初始状态并保存\n";
   return 0;
 }
 
-// ---- 6. 换乘站整体关闭: close-transfer <name> ----
+// 换乘站整体关闭：关闭所有同名站点
 static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
-  // 先做副作用, 全部完成后再 emitOK (避免中文行污染协议头)
-  int n = sm.closeTransferStationSilent(name); // 静默版, 不打印中文
+  int n = sm.closeTransferStationSilent(name);
   if (n > 0)
     sm.saveCurrentToCSV(STATION_CSV);
   emitOK();
@@ -301,7 +271,7 @@ static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
   return 0;
 }
 
-// ---- 7. 线路停运/恢复: line-toggle <line> <open|close> ----
+// 线路停运/恢复
 static int cmdLineToggle(StationManager &sm, const std::string &line,
                          const std::string &action) {
   int n = 0;
@@ -325,7 +295,7 @@ static int cmdLineToggle(StationManager &sm, const std::string &line,
   return 0;
 }
 
-// ---- 8. 全网停运/恢复: network-toggle <open|close> ----
+// 全网停运/恢复
 static int cmdNetworkToggle(StationManager &sm, const std::string &action) {
   int n = 0;
   if (action == "close") {
@@ -346,7 +316,7 @@ static int cmdNetworkToggle(StationManager &sm, const std::string &action) {
   return 0;
 }
 
-// ---- 9. 关闭影响分析: impact <name> <line> ----
+// 关闭影响分析
 static int cmdImpact(PathFinder &pf, StationManager &sm,
                      const std::string &name, const std::string &line) {
   auto info = pf.analyzeImpact(name, line);
@@ -370,7 +340,7 @@ static int cmdImpact(PathFinder &pf, StationManager &sm,
   return 0;
 }
 
-// ---- 10. 网络连通性分析: network (含各分量站点明细) ----
+// 网络连通性分析（含各分量站点明细）
 static int cmdNetwork(PathFinder &pf, const StationManager &sm) {
   auto ninfo = pf.analyzeNetworkConnectivity();
   emitOK();
@@ -396,7 +366,7 @@ static int cmdNetwork(PathFinder &pf, const StationManager &sm) {
   return 0;
 }
 
-// ---- 11. 列出所有线路: lines ----
+// 线路名列表命令
 static int cmdListLines(const StationManager &sm) {
   auto lines = sm.getAllLines();
   emitOK();
@@ -408,12 +378,7 @@ static int cmdListLines(const StationManager &sm) {
   return 0;
 }
 
-// ---- 12. 批量更新: batch_update [path] ----
-// path 留空时使用 data/update_station_status.csv
-// 复用 StationManager::batchUpdateFromCSV, 支持两种格式: id,status /
-// name,line,status
-// 注意: batchUpdateFromCSV 会向 stdout 打印中文进度行, 需临时重定向 cout
-// 捕获, 保证协议首行为 OK/ERR
+// 批量更新：复用 StationManager，临时重定向 cout 保证协议头干净
 static int cmdBatchUpdate(StationManager &sm, const std::string &path) {
   std::string p = path;
   if (p.empty())
@@ -421,7 +386,7 @@ static int cmdBatchUpdate(StationManager &sm, const std::string &path) {
   std::stringstream captured;
   std::streambuf *oldBuf = std::cout.rdbuf(captured.rdbuf());
   int n = sm.batchUpdateFromCSV(p);
-  std::cout.rdbuf(oldBuf); // 恢复, 后续 emitOK/emitErr 输出到真实 stdout
+  std::cout.rdbuf(oldBuf);
   if (n < 0) {
     emitErr("批量更新失败: 文件无法打开或格式错误 (" + p + ")");
     return 0;
@@ -435,6 +400,7 @@ static int cmdBatchUpdate(StationManager &sm, const std::string &path) {
   return 0;
 }
 
+// 用法提示
 static void printUsage() {
   std::cout
       << "USAGE\n"
@@ -457,7 +423,7 @@ static void printUsage() {
       << "  main_web help\n";
 }
 
-// ---------------- 主入口 ----------------
+// 主入口：解析命令分发到各 cmd* 处理函数
 int main(int argc, char **argv) {
 #ifdef _WIN32
   SetConsoleOutputCP(CP_UTF8);
@@ -468,7 +434,6 @@ int main(int argc, char **argv) {
     printUsage();
     return 1;
   }
-  // 关键: Windows argv 按 ANSI 代码页解码, 转为 UTF-8 再用, 避免中文乱码
   std::vector<std::string> args;
   args.reserve(argc);
   for (int i = 0; i < argc; ++i) {
@@ -476,13 +441,11 @@ int main(int argc, char **argv) {
   }
   std::string cmd = args[1];
 
-  // help 无需加载数据
   if (cmd == "help" || cmd == "--help" || cmd == "-h") {
     printUsage();
     return 0;
   }
 
-  // 加载数据
   StationManager sm;
   if (!sm.loadFromCSV(STATION_CSV)) {
     emitErr("加载 Station.csv 失败: " + STATION_CSV);
@@ -554,7 +517,7 @@ int main(int argc, char **argv) {
   return 1;
 }
 
-// ---------------- Unity Build ----------------
+// Unity Build
 #ifndef NO_UNITY_BUILD
 #include "graph.cpp"
 #include "pathfinder.cpp"

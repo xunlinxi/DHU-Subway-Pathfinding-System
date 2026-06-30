@@ -8,6 +8,7 @@
 #include <ostream>
 #include <sstream>
 
+// 重建站点索引（按 id 和 name）
 namespace {
 void rebuildIndexes(
     const std::vector<Station> &stations,
@@ -38,6 +39,7 @@ std::string StationManager::trim(const std::string &s) {
   return s.substr(b, e - b);
 }
 
+// 解析一行 CSV，处理引号与逗号
 std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
   std::vector<std::string> fields;
   std::string cur;
@@ -57,6 +59,7 @@ std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
   return fields;
 }
 
+// 从 CSV 加载站点数据
 bool StationManager::loadFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -102,6 +105,7 @@ bool StationManager::loadFromCSV(const std::string &csvPath) {
   return true;
 }
 
+// 加载初始状态快照用于一键恢复
 bool StationManager::loadInitFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -141,7 +145,7 @@ bool StationManager::loadInitFromCSV(const std::string &csvPath) {
   return true;
 }
 
-// ---------- 批量更新状态 ----------
+// 批量更新站点状态，返回成功更新的数量
 int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -170,7 +174,6 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
       if (!fields.empty() &&
           (fields[0] == "name" || fields[0] == "id" ||
            fields[0] == "站点名称" || fields[0] == "站点ID")) {
-        // 跳过中英文表头
         continue;
       }
     }
@@ -235,6 +238,7 @@ int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
   return success;
 }
 
+// 模糊搜索站点（不区分大小写）
 std::vector<Station>
 StationManager::fuzzySearch(const std::string &keyword) const {
   std::vector<Station> res;
@@ -256,6 +260,7 @@ StationManager::fuzzySearch(const std::string &keyword) const {
   return res;
 }
 
+// 站点查询：按名称 / id / 关闭状态 / 线路
 std::vector<Station>
 StationManager::getStationsByName(const std::string &name) const {
   std::vector<Station> res;
@@ -293,6 +298,7 @@ StationManager::getStationsByLine(const std::string &line) const {
   return res;
 }
 
+// 获取所有线路名，按编号排序
 std::vector<std::string> StationManager::getAllLines() const {
   std::vector<std::string> lines;
   std::unordered_set<std::string> seen;
@@ -330,6 +336,7 @@ std::vector<std::string> StationManager::getAllLines() const {
   return lines;
 }
 
+// 站点状态更新与恢复（含静默恢复）
 bool StationManager::setStationStatus(const std::string &name,
                                       const std::string &line,
                                       const std::string &newStatus) {
@@ -351,7 +358,6 @@ void StationManager::restoreInitialStatus() {
   }
 }
 
-// 不打印中文提示, 返回是否成功恢复
 bool StationManager::restoreInitialStatusSilent() {
   if (initialSnapshot_.empty()) {
     return false;
@@ -365,13 +371,13 @@ bool StationManager::restoreInitialStatusSilent() {
   return true;
 }
 
+// 保存当前站点状态到 CSV（写入 UTF-8 BOM 防乱码）
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
   std::ofstream fout(csvPath, std::ios::binary);
   if (!fout.is_open()) {
     std::cerr << "[Station] 无法写入文件: " << csvPath << std::endl;
     return false;
   }
-  // 写 UTF-8 BOM, 防止 Windows 记事本 / 网页按 ANSI 解析造成中文乱码
   const unsigned char bom[3] = {0xEF, 0xBB, 0xBF};
   fout.write(reinterpret_cast<const char *>(bom), 3);
   fout << "id,name,line,status\n";
@@ -383,6 +389,7 @@ bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
   return true;
 }
 
+// 状态判断与格式化显示（关闭站点表 / 线路站点表）
 bool StationManager::isClosed(int id) const {
   auto it = indexById_.find(id);
   if (it == indexById_.end())
@@ -436,6 +443,7 @@ int StationManager::nextStationId() const {
   return maxId + 1;
 }
 
+// 添加新站点，返回新 id（同名同线已存在返回 -1）
 int StationManager::addStation(const std::string &name, const std::string &line,
                                const std::string &status) {
   auto sameNameStations = getStationsByName(name);
@@ -454,6 +462,7 @@ int StationManager::addStation(const std::string &name, const std::string &line,
   return station.id;
 }
 
+// 站点增删与换乘判断
 bool StationManager::removeStation(const std::string &name,
                                    const std::string &line) {
   auto it = indexesByName_.find(name);
@@ -476,9 +485,6 @@ bool StationManager::removeStation(const std::string &name,
   return true;
 }
 
-// ============================================================
-//    运营管理扩展：换乘站整体关闭
-// ============================================================
 bool StationManager::isTransferStation(const std::string &name) const {
   auto it = indexesByName_.find(name);
   if (it == indexesByName_.end())
@@ -486,6 +492,7 @@ bool StationManager::isTransferStation(const std::string &name) const {
   return it->second.size() > 1;
 }
 
+// 关闭换乘站所有同名站点
 int StationManager::closeTransferStation(const std::string &name) {
   auto it = indexesByName_.find(name);
   if (it == indexesByName_.end()) {
@@ -507,9 +514,7 @@ int StationManager::closeTransferStation(const std::string &name) {
   return cnt;
 }
 
-// ============================================================
-//    运营管理扩展：线路停运 / 恢复
-// ============================================================
+// 线路 / 全网停运与恢复（带中文打印，供 CLI 使用）
 int StationManager::closeLineStations(const std::string &line) {
   int cnt = 0;
   for (auto &st : stations_) {
@@ -536,9 +541,6 @@ int StationManager::openLineStations(const std::string &line) {
   return cnt;
 }
 
-// ============================================================
-//    运营管理扩展：全网停运 / 恢复
-// ============================================================
 int StationManager::closeAllStations() {
   int cnt = 0;
   for (auto &st : stations_) {
@@ -563,10 +565,7 @@ int StationManager::openAllStations() {
   return cnt;
 }
 
-// ============================================================
-//    Silent 版本: 不打印中文提示, 直接返回计数
-//    适合 main_web 等子进程调用, 避免污染 stdout 协议头
-// ============================================================
+// 静默版本：不打印中文提示，供 Web 子进程调用
 int StationManager::closeTransferStationSilent(const std::string &name) {
   auto it = indexesByName_.find(name);
   if (it == indexesByName_.end())

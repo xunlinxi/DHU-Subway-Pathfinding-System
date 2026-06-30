@@ -1,4 +1,4 @@
-// 路径规划算法与路径格式化输出。
+// pathfinder.h - 路径规划算法与路径格式化输出
 #pragma once
 
 #include "graph.h"
@@ -7,19 +7,15 @@
 #include <unordered_set>
 #include <vector>
 
+// 一条完整路径及其统计信息
 struct Path {
-  // 节点序列：每个元素是 Station.id（同名换乘站 id 不同）
   std::vector<int> nodes;
-  // 段线路：lines[i] 表示从 nodes[i] -> nodes[i+1] 所乘坐的线路
   std::vector<std::string> lines;
-  // 段方向：directions[i] 对应 lines[i] 的 4 号线内/外圈信息（其余为空）
   std::vector<std::string> directions;
-  // 统计
-  int totalTime = 0;   // 总耗时（分钟）
-  int transferCnt = 0; // 换乘次数
-  int stopCnt = 0;     // 途经站数（含起终点 + 同名换乘拆分后的所有节点）
-  int actualStopCnt =
-      0; // 实际经过站数（不含换乘拆分冗余）= stopCnt - transferCnt
+  int totalTime = 0;
+  int transferCnt = 0;
+  int stopCnt = 0;
+  int actualStopCnt = 0;
   bool valid = false;
 
   std::string signature() const;
@@ -28,6 +24,7 @@ struct Path {
 
 enum class OptGoal { TIME, TRANSFER };
 
+// 路径查找器：Dijkstra 变种与 Yen K 短路
 class PathFinder {
 public:
   PathFinder(Graph &graph, StationManager &stationManager)
@@ -38,26 +35,25 @@ public:
   std::vector<Path> findKShortestByTime(int startId, int endId, int K = 3);
   std::vector<Path> findKShortestByTransfer(int startId, int endId, int K = 3);
 
+  // 受影响区域分析结果
   struct ImpactInfo {
-    std::string name;                       // 被关闭站点名称
-    std::string line;                       // 被关闭站点所在线路
-    std::vector<int> sameLineAdj;           // 同线直接受影响站点
-    std::vector<std::string> affectedLines; // 受影响线路
+    std::string name;
+    std::string line;
+    std::vector<int> sameLineAdj;
+    std::vector<std::string> affectedLines;
   };
   ImpactInfo analyzeImpact(const std::string &name, const std::string &line);
 
-  // 6) 网络连通性分析：使用 DFS 统计连通分量
+  // 网络连通性分析结果（DFS 统计连通分量）
   struct NetworkInfo {
-    int componentCount = 0;                   // 连通分量数
-    int totalOpenStations = 0;                // 当前开放站点数
-    int totalClosedStations = 0;              // 当前关闭站点数
-    std::vector<std::vector<int>> components; // 各连通分量的站点 id 列表
-    bool isConnected = false; // 全网是否连通（componentCount == 1）
+    int componentCount = 0;
+    int totalOpenStations = 0;
+    int totalClosedStations = 0;
+    std::vector<std::vector<int>> components;
+    bool isConnected = false;
   };
   NetworkInfo analyzeNetworkConnectivity();
 
-  // 由 Path 中 nodes/lines 重新计算 totalTime / transferCnt / stopCnt
-  // 暴露为 public 供 K 短路辅助函数使用
   static void finalizeStats(Path &p, const Graph &g);
   Graph &graph() { return graph_; }
   Path dijkstraFull(int startId, int endId, OptGoal goal);

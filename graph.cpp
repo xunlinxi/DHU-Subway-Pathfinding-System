@@ -5,12 +5,14 @@
 #include <ostream>
 #include <unordered_map>
 
+// 内部工具：保证邻接表容量足够
 namespace {
 void ensureSize(std::vector<std::vector<Edge>> &adjacencyList, int id) {
   if ((int)adjacencyList.size() <= id)
     adjacencyList.resize(id + 1);
 }
 
+// 添加有向边，按 (to, line, direction) 三元组去重
 void addDirectedEdge(std::vector<std::vector<Edge>> &adjacencyList, int from,
                      int to, const std::string &line, int time,
                      const std::string &direction = "") {
@@ -25,6 +27,7 @@ void addDirectedEdge(std::vector<std::vector<Edge>> &adjacencyList, int from,
 }
 } // namespace
 
+// 从 CSV 加载线路边
 bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
   std::ifstream fin(csvPath);
   if (!fin.is_open()) {
@@ -62,7 +65,7 @@ bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
       continue;
     }
     std::string ln = fields[2];
-    std::string dir = fields[3]; // 运行方向（4号线内/外圈）
+    std::string dir = fields[3];
     addDirectedEdge(adjacencyList_, from, to, ln, t, dir);
     maxId = std::max(maxId, std::max(from, to));
   }
@@ -71,6 +74,7 @@ bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
   return true;
 }
 
+// 为同名换乘站构建 5 分钟双向换乘边
 void Graph::buildTransferEdges() {
   transferPairs_.clear();
   std::unordered_map<std::string, std::vector<int>> name2ids;
@@ -99,6 +103,7 @@ void Graph::buildTransferEdges() {
   }
 }
 
+// 构建：加载边 + 构建换乘边
 bool Graph::build(const std::string &edgeCsvPath) {
   adjacencyList_.clear();
   if (!loadEdgesFromCSV(edgeCsvPath))
@@ -107,6 +112,7 @@ bool Graph::build(const std::string &edgeCsvPath) {
   return true;
 }
 
+// 图的清理与重建
 void Graph::clear() {
   adjacencyList_.clear();
   transferPairs_.clear();
@@ -118,6 +124,7 @@ void Graph::rebuild(const std::string &edgeCsvPath) {
   buildTransferEdges();
 }
 
+// 边添加与邻居查询（同线 / 换乘 / 全部线路）
 bool Graph::addEdge(int fromId, int toId, const std::string &line, int timeMin,
                     const std::string &direction) {
   if (fromId < 0 || toId < 0)
@@ -168,6 +175,7 @@ std::vector<std::string> Graph::getLinesOfStation(int id) const {
   return res;
 }
 
+// 调试输出：打印整张邻接表
 void Graph::debugPrint(std::ostream &output) const {
   for (size_t i = 0; i < adjacencyList_.size(); ++i) {
     const Station *st = stationManager_.findById((int)i);

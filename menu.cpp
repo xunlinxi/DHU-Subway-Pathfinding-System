@@ -1,7 +1,3 @@
-// =============================================================
-//  menu.cpp
-//  控制台菜单实现（v1.3 - 对齐运行效果图格式）
-// =============================================================
 #include "menu.h"
 #include <cctype>
 #include <cstdlib>
@@ -10,9 +6,7 @@
 #include <limits>
 #include <sstream>
 
-// ============================================================
-//                  通用 UI 工具
-// ============================================================
+// 通用 UI 工具：清屏、暂停、输入读取
 void Menu::clearScreen() {
 #ifdef _WIN32
   system("cls");
@@ -25,12 +19,12 @@ void Menu::pause() {
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
   std::cin.get();
 }
+// 读取整数，严格校验只允许 [可选 +/-] + 全数字
 int Menu::readInt(const std::string &prompt, int defaultVal) {
   std::cout << prompt;
   std::string s;
   if (!std::getline(std::cin, s))
     return defaultVal;
-  // 去掉首尾 ASCII 空白
   size_t b = 0, e = s.size();
   auto isSpace = [](unsigned char c) {
     return c == ' ' || c == '\t' || c == '\r' || c == '\n';
@@ -42,12 +36,11 @@ int Menu::readInt(const std::string &prompt, int defaultVal) {
   s = s.substr(b, e - b);
   if (s.empty())
     return defaultVal;
-  // 严格校验: 只允许 [可选 +/-] + 全数字, 拒绝浮点数 / 字母 / 符号混杂
   size_t i = 0;
   if (s[0] == '+' || s[0] == '-')
     ++i;
   if (i == s.size())
-    return defaultVal; // 仅符号无数字
+    return defaultVal;
   for (; i < s.size(); ++i) {
     if (!std::isdigit((unsigned char)s[i]))
       return defaultVal;
@@ -68,7 +61,6 @@ std::string Menu::readLine(const std::string &prompt) {
 static std::string normalizeLineName(const std::string &s) {
   if (s.empty())
     return s;
-  // 全角数字 → 半角（用字符串匹配避免多字节警告）
   static const std::string fullDigits = "０１２３４５６７８９";
   std::string t;
   for (size_t i = 0; i < s.size();) {
@@ -77,7 +69,6 @@ static std::string normalizeLineName(const std::string &s) {
       std::string full(1, (char)(0xEF));
       full += (char)(0x82);
       full += (char)(0x80 + d);
-      // 这里用直接字节比较更稳妥
       if (i + 3 <= s.size() &&
           (unsigned char)s[i] == (unsigned char)fullDigits[d * 3] &&
           (unsigned char)s[i + 1] == (unsigned char)fullDigits[d * 3 + 1] &&
@@ -93,10 +84,8 @@ static std::string normalizeLineName(const std::string &s) {
       ++i;
     }
   }
-  // 已经是 X号线
   if (t.find("号线") != std::string::npos)
     return t;
-  // 纯数字 → 加 "号线"
   bool allDigit = !t.empty();
   for (char c : t)
     if (!std::isdigit((unsigned char)c)) {
@@ -108,19 +97,11 @@ static std::string normalizeLineName(const std::string &s) {
   return t;
 }
 
-// ============================================================
-//    模糊搜索 + 换乘站二次选择（按运行效果图格式）
-//    输出:
-//      匹配站点如下：
-//      1. 莘庄 (1号线)
-//      2. 莘庄 (5号线)
-//      请输入对应编号选择站点：
-// ============================================================
+// 模糊搜索站点，换乘站提供二次选择
 int Menu::fuzzyPickStation(const std::string &prompt) {
   while (true) {
     std::string key = readLine(prompt);
     key = StationManager::trim(key);
-    // 空字符串(=直接回车) / 输入 exit 都视为取消, 返回 -1
     if (key.empty() || key == "exit")
       return -1;
 
@@ -149,14 +130,7 @@ int Menu::fuzzyPickStation(const std::string &prompt) {
   }
 }
 
-// ============================================================
-//                      主菜单
-//   按指导书 §3.8 运行效果图：
-//   1. 线路站点信息/运营状态管理
-//   2. 所需时间最短路径规划
-//   3. 所需换乘次数最少路径规划
-//   4. 退出系统
-// ============================================================
+// 主菜单：1.站点管理 2.时间最短 3.换乘最少 4.退出
 void Menu::run() {
   while (true) {
     clearScreen();
@@ -190,13 +164,7 @@ void Menu::run() {
   }
 }
 
-// ============================================================
-//   站点管理子菜单（按运行效果图 §3.8.1 + 运营管理扩展）
-//   1.批量更新 2.手工更新 3.显示关闭站点 4.恢复初始
-//   5.显示线路站点 6.换乘站整体关闭 7.线路停运管理
-//   8.全网停运管理 9.受影响区域分析 10.网络连通性分析
-//   11.返回上级菜单
-// ============================================================
+// 站点管理子菜单：批量更新、手工更新、显示关闭、恢复初始、显示线路、换乘站/线路/全网管理、影响分析、连通性分析
 void Menu::stationMenu() {
   while (true) {
     clearScreen();
@@ -263,7 +231,7 @@ void Menu::stationMenu() {
   }
 }
 
-// ---------- 1) 批量更新 ----------
+// 批量更新站点状态（支持单条直接输入或 CSV 文件）
 void Menu::batchUpdateFromCSV() {
   clearScreen();
   std::cout << "--- 批量更新站点状态 ---\n";
@@ -302,7 +270,6 @@ void Menu::batchUpdateFromCSV() {
   if (handled) {
     if (ok) {
       std::cout << "  [完成] 单条站点状态更新成功。\n";
-      // 实时同步到 CSV
       if (!stationManager_.saveCurrentToCSV("data/Station.csv"))
         std::cout << "  [失败] 目标文件不存在或无法写入: data/Station.csv。\n";
     } else
@@ -322,7 +289,7 @@ void Menu::batchUpdateFromCSV() {
     std::cout << "  [失败] 更新文件不存在或无法打开。\n";
 }
 
-// ---------- 2) 手工更新站点状态（支持循环操作 + 统计）----------
+// 手工更新站点状态（支持循环操作 + 实时落盘）
 void Menu::toggleOneStation() {
   clearScreen();
   std::cout << "--- 手工更新站点状态 ---\n";
@@ -344,7 +311,6 @@ void Menu::toggleOneStation() {
       continue;
     }
     if (stationManager_.setStationStatus(s->name, s->line, newSt)) {
-      // 实时同步到 CSV
       stationManager_.saveCurrentToCSV("data/Station.csv");
       std::cout << "修改站点: " << s->name << " (" << s->line
                 << ") -> 状态: " << newSt << "\n";
@@ -359,7 +325,7 @@ void Menu::toggleOneStation() {
     std::cout << "  没有修改任何站点。\n";
 }
 
-// ---------- 3) 显示当前关闭站点 ----------
+// 显示当前关闭站点
 void Menu::showClosedStations() {
   clearScreen();
   std::cout << "--- 当前关闭的站点 ---\n";
@@ -375,7 +341,7 @@ void Menu::showClosedStations() {
   std::cout << "  共 " << closed.size() << " 个关闭站点。\n";
 }
 
-// ---------- 4) 恢复所有站点初始状态 (Y/N 确认) ----------
+// 恢复所有站点初始状态（Y/N 确认）
 void Menu::restoreInitial() {
   clearScreen();
   std::cout << "--- 恢复所有站点初始状态 ---\n";
@@ -384,12 +350,10 @@ void Menu::restoreInitial() {
     std::cout << "  已取消恢复。\n";
     return;
   }
-  // 尝试恢复（静默版本，便于判断异常分支）
   if (!stationManager_.restoreInitialStatusSilent()) {
     std::cout << "  无法打开初始化文件。\n";
     return;
   }
-  // 同步回写 Station.csv
   if (!stationManager_.saveCurrentToCSV("data/Station.csv")) {
     std::cout << "  无法写入目标文件。\n";
     return;
@@ -397,7 +361,7 @@ void Menu::restoreInitial() {
   std::cout << "已成功恢复所有站点至初始状态。\n";
 }
 
-// ---------- 5) 显示线路站点信息（按运行效果图 §3.8.1）----------
+// 显示线路站点信息，换乘站标注其他线路
 void Menu::showLineStations() {
   clearScreen();
   std::cout << "--- 显示线路站点信息 ---\n";
@@ -424,13 +388,11 @@ void Menu::showLineStations() {
   auto sts = stationManager_.getStationsByLine(line);
   std::cout << "  " << line << " 共有 " << sts.size() << " 个站点：\n";
 
-  // 4 号线是环线, 显式提示内圈/外圈方向
   if (line == "4号线") {
     std::cout << "  [提示] 4 号线为环线, 列车按 内圈/外圈 两个方向运行,"
                  " 同一站点存在两个方向的相邻站点。\n";
   }
 
-  // 对每个站点：判断是否为换乘站（同名存在多条线路 → 是换乘站）
   for (size_t i = 0; i < sts.size(); ++i) {
     const auto &s = sts[i];
     auto same = stationManager_.getStationsByName(s.name);
@@ -455,12 +417,7 @@ void Menu::showLineStations() {
   }
 }
 
-// ============================================================
-//   时间最优子菜单（独立二级菜单，按 §3.8 运行效果图）
-//   1. 单条所需时间最短路径
-//   2. 3条所需时间最短路径
-//   3. 返回上级菜单
-// ============================================================
+// 时间最短路径子菜单：单条 / 3 条 / 返回
 void Menu::timeMenu() {
   while (true) {
     clearScreen();
@@ -487,12 +444,7 @@ void Menu::timeMenu() {
   }
 }
 
-// ============================================================
-//   换乘最优子菜单（独立二级菜单，按 §3.8 运行效果图）
-//   1. 单条换乘次数最少路径
-//   2. 3条换乘次数最少路径
-//   3. 返回主菜单
-// ============================================================
+// 换乘最少路径子菜单：单条 / 3 条 / 返回
 void Menu::transferMenu() {
   while (true) {
     clearScreen();
@@ -519,7 +471,7 @@ void Menu::transferMenu() {
   }
 }
 
-// ---------- 路径查询核心 ----------
+// 路径查询核心：mode 0=单条时间 1=单条换乘 2=K时间 3=K换乘
 void Menu::runPathQuery(int mode) {
   clearScreen();
   const char *titles[] = {"单条所需时间最短路径规划",
@@ -542,7 +494,6 @@ void Menu::runPathQuery(int mode) {
   if (!ss || !es)
     return;
 
-  // 前置检查起点/终点是否关闭
   if (ss->status == "关闭") {
     std::cout << "  起点：" << ss->name << "（" << ss->line
               << "）已关闭，无法进行路径规划。\n";
@@ -557,7 +508,6 @@ void Menu::runPathQuery(int mode) {
   std::cout << "  终点：" << es->name << " (" << es->line << ")\n\n";
 
   if (mode == 0) {
-    // 单条时间最短
     Path p = pathFinder_.findBestByTime(sId, eId);
     if (!p.valid) {
       std::cout << "  [提示] 未找到可达路径。\n";
@@ -565,7 +515,6 @@ void Menu::runPathQuery(int mode) {
     }
     std::cout << p.toPrettyString(stationManager_) << "\n";
   } else if (mode == 1) {
-    // 单条换乘最少
     Path p = pathFinder_.findBestByTransfer(sId, eId);
     if (!p.valid) {
       std::cout << "  [提示] 未找到可达路径。\n";
@@ -573,7 +522,6 @@ void Menu::runPathQuery(int mode) {
     }
     std::cout << p.toPrettyString(stationManager_) << "\n";
   } else if (mode == 2) {
-    // K 条时间最短
     auto paths = pathFinder_.findKShortestByTime(sId, eId, 3);
     if (paths.empty()) {
       std::cout << "  [提示] 未找到可达路径。\n";
@@ -584,7 +532,6 @@ void Menu::runPathQuery(int mode) {
                 << paths[i].toPrettyString(stationManager_) << "\n";
     }
   } else if (mode == 3) {
-    // K 条换乘最少
     auto paths = pathFinder_.findKShortestByTransfer(sId, eId, 3);
     if (paths.empty()) {
       std::cout << "  [提示] 未找到可达路径。\n";
@@ -597,9 +544,7 @@ void Menu::runPathQuery(int mode) {
   }
 }
 
-// ============================================================
-//   受关闭站点影响站点分析（按运行效果图 §3.8.1 / §3.8.3）
-// ============================================================
+// 受关闭站点影响分析：受影响线路 + 直接相邻站点
 void Menu::runImpactAnalysis() {
   clearScreen();
   std::cout << "--- 受关闭站点影响站点分析 ---\n";
@@ -636,12 +581,9 @@ void Menu::runImpactAnalysis() {
   }
 }
 
-// ============================================================
-//      §3.3 建站管理（可选加分项）+ 运营管理扩展
-// ============================================================
 void Menu::buildMenu() { stationMenu(); }
 
-// ---- 运营管理扩展：换乘站整体关闭 ----
+// 换乘站整体关闭管理
 void Menu::closeTransferStationMenu() {
   clearScreen();
   std::cout << "--- 换乘站整体关闭管理 ---\n";
@@ -658,12 +600,11 @@ void Menu::closeTransferStationMenu() {
         << "  [提示] 操作未生效，请检查站点名称是否正确或是否为换乘站。\n";
   else {
     std::cout << "  [完成] 已关闭 " << cnt << " 个站点。\n";
-    // 实时同步到 CSV
     stationManager_.saveCurrentToCSV("data/Station.csv");
   }
 }
 
-// ---- 运营管理扩展：线路停运管理 ----
+// 线路停运管理：停运 / 恢复
 void Menu::lineOutageMenu() {
   while (true) {
     clearScreen();
@@ -706,7 +647,7 @@ void Menu::lineOutageMenu() {
   }
 }
 
-// ---- 运营管理扩展：全网停运/恢复 ----
+// 全网停运/恢复管理
 void Menu::networkOutageMenu() {
   while (true) {
     clearScreen();
@@ -747,7 +688,7 @@ void Menu::networkOutageMenu() {
   }
 }
 
-// ---- 运营管理扩展：网络连通性分析 ----
+// 网络连通性分析：开放/关闭数、连通分量、断裂详情
 void Menu::networkConnectivityMenu() {
   clearScreen();
   std::cout << "--- 网络连通性分析 ---\n";

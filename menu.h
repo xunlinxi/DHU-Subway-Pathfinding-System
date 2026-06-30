@@ -1,9 +1,10 @@
-// 控制台菜单与交互流程。
+// menu.h - 控制台菜单与交互流程
 #pragma once
 
 #include "pathfinder.h"
 #include <string>
 
+// 主菜单控制器：站点管理、路径查询、运营管理
 class Menu {
 public:
   Menu(StationManager &stationManager, Graph &graph, PathFinder &pathFinder)
@@ -24,14 +25,12 @@ private:
 
   int fuzzyPickStation(const std::string &prompt);
 
-  // ---------- 菜单 ----------
   void mainMenu();
-  void stationMenu();  // 站点管理
-  void timeMenu();     // 所需时间最短路径规划（独立子菜单）
-  void transferMenu(); // 所需换乘次数最少路径规划（独立子菜单）
-  void buildMenu();    // §3.3 建站管理（可选加分）
+  void stationMenu();
+  void timeMenu();
+  void transferMenu();
+  void buildMenu();
 
-  // ---------- 业务 ----------
   void showClosedStations();
   void showLineStations();
   void queryStations();
@@ -39,11 +38,11 @@ private:
   void batchUpdateFromCSV();
   void restoreInitial();
   void runImpactAnalysis();
-  void runPathQuery(int mode); // 0=time, 1=transfer, 2=K-time, 3=K-transfer
+  void runPathQuery(int mode);
 
-  // ---- 运营管理扩展 ----
-  void closeTransferStationMenu(); // 换乘站整体关闭
-  void lineOutageMenu();           // 线路停运管理
-  void networkOutageMenu();        // 全网停运/恢复
-  void networkConnectivityMenu();  // 网络连通性分析
+  // 运营管理扩展
+  void closeTransferStationMenu();
+  void lineOutageMenu();
+  void networkOutageMenu();
+  void networkConnectivityMenu();
 };

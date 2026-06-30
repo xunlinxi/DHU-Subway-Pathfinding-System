@@ -1,4 +1,4 @@
-// 邻接表图结构，负责线路边与站内换乘边。
+// graph.h - 邻接表图结构，负责线路边与站内换乘边
 #pragma once
 
 #include "station.h"
@@ -7,13 +7,13 @@
 #include <string>
 #include <vector>
 
+// 图的边：连接两个站点，记录线路、方向与通行时间
 struct Edge {
-  int to;                // 终点站 id
-  std::string line;      // 所属线路
-  std::string direction; // 运行方向，例如 "内圈" / "往徐家汇"
-  int time;              // 通行时间（分钟）
+  int to;
+  std::string line;
+  std::string direction;
+  int time;
 
-  // 便于按 (to, line) 唯一标识一条边：换乘和同线用同一结构存储
   bool operator==(const Edge &other) const {
     return to == other.to && line == other.line && direction == other.direction;
   }
@@ -21,6 +21,7 @@ struct Edge {
 
 constexpr int kTransferMinutes = 5;
 
+// 地铁网络图：邻接表存储线路边与换乘边
 class Graph {
 public:
   explicit Graph(StationManager &stationManager)

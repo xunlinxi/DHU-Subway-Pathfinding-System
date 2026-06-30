@@ -256,6 +256,7 @@ class ImpactRequest(BaseModel):
     name: str = Field(..., description="站点名")
     line: str = Field(..., description="线路名")
 
+# ---- 路径查询：单条最优 / K 条候选（时间 / 换乘）----
 @app.get("/api/subway/query")
 def api_query(
     start:      str  = Query(..., description="起点站名"),
@@ -277,6 +278,7 @@ def api_query(
         raise HTTPException(status_code=400, detail=result.get("message", "查询失败"))
     return JSONResponse(result)
 
+# ---- 站点状态：切换 / 批量更新 ----
 @app.post("/api/subway/station/toggle")
 def api_toggle(req: ToggleRequest):
     if req.status not in ("开启", "关闭"):
@@ -286,6 +288,7 @@ def api_toggle(req: ToggleRequest):
         raise HTTPException(status_code=400, detail=result.get("message", "更新失败"))
     return JSONResponse(result)
 
+# ---- 站点列表：全部 / 仅关闭 / 按线路 / 所有线路名 ----
 @app.get("/api/subway/stations/all")
 def api_stations_all():
     return JSONResponse(run_main_web(["list_all"]))
@@ -298,6 +301,7 @@ def api_stations_closed():
 def api_stations_line(line: str):
     return JSONResponse(run_main_web(["list_line", line]))
 
+# ---- 运营管理：恢复初始 / 换乘站关闭 / 线路停运 / 全网停运 ----
 @app.post("/api/subway/reset")
 def api_reset():
     return JSONResponse(run_main_web(["reset"]))
@@ -355,6 +359,7 @@ def api_network_toggle(req: NetworkToggleRequest):
         raise HTTPException(status_code=400, detail=result.get("message", "操作失败"))
     return JSONResponse(result)
 
+# ---- 分析：受关闭影响 / 网络连通性 ----
 @app.post("/api/subway/analyze/impact")
 def api_impact(req: ImpactRequest):
     result = run_main_web(["impact", req.name, req.line])
@@ -370,6 +375,7 @@ def api_network():
 def api_lines():
     return JSONResponse(run_main_web(["list_lines"]))
 
+# ---- 静态页面与健康检查 ----
 @app.get("/")
 def index():
     if not os.path.exists(INDEX_HTML):
@@ -381,6 +387,7 @@ def healthz():
     return {"ok": True, "main_web_exists": os.path.exists(MAIN_WEB)}
 
 
+# 启动入口
 if __name__ == "__main__":
     import uvicorn
     print(f"[INFO] BASE_DIR     = {BASE_DIR}")
