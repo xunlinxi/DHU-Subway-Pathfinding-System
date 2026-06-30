@@ -255,16 +255,17 @@ void Menu::showLineStations() {
     std::cout << "  " << (i + 1) << ". " << allLines[i] << "\n";
   }
 
-  std::string raw = readLine("  请输入要查询的地铁线路（如：1号线、2号线、浦江线）：");
-  if (raw.empty()) return;
-  std::string line = normalizeLineName(StationManager::trim(raw));
-
-  auto sts = sm_.getStationsByLine(line);
-  if (sts.empty()) {
-    std::cout << "  [提示] 未找到线路 [" << line
-              << "]，请输入上方列出的地铁线路名称。\n";
+  int choice = readInt("  请输入要查询的线路序号：", -1);
+  if (choice < 0)
+    return;
+  if (choice == 0 || (size_t)choice > allLines.size()) {
+    std::cout << "  [提示] 线路序号无效，请输入 1 到 "
+              << allLines.size() << " 之间的数字。\n";
     return;
   }
+
+  std::string line = allLines[choice - 1];
+  auto sts = sm_.getStationsByLine(line);
   std::cout << "  " << line << " 共有 " << sts.size() << " 个站点：\n";
 
   // 对每个站点：判断是否为换乘站（同名存在多条线路 → 是换乘站）
