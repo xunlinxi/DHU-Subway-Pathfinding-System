@@ -34,7 +34,7 @@ std::string StationManager::trim(const std::string &s) {
   }
   // 跳过首部 ASCII 空白（含全角空格的高位字节也视为空白）
   auto isSpace = [](unsigned char c) {
-    return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == 0xA0;
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
   };
   while (b < e && isSpace((unsigned char)s[b]))
     ++b;
