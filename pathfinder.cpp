@@ -46,11 +46,14 @@ std::string Path::toPrettyString(const StationManager &sm) const {
     const Station *s = sm.findById(id);
     return s ? s->line : std::string("?");
   };
-  // 获取线路方向标签（仅4号线有）
+  // 获取方向标签（仅4号线显示内圈/外圈）
   auto dirOf = [&](int edgeIdx) -> std::string {
     if (edgeIdx < 0 || edgeIdx >= (int)directions.size())
       return "";
-    return directions[edgeIdx];
+    const std::string &d = directions[edgeIdx];
+    if (d == "内圈" || d == "外圈")
+      return d;
+    return "";
   };
 
   std::vector<std::string> nodeNames;
@@ -240,12 +243,15 @@ static Path dijkstraCore(int startId, int endId, OptGoal goal,
       // 填充方向信息
       for (int i = 0; i + 1 < (int)p.nodes.size(); ++i) {
         int u = p.nodes[i], v = p.nodes[i + 1];
+        bool found = false;
         for (const auto &e : adj[u]) {
-          if (e.to == v && e.line == p.lines[i]) {
+          if (e.to == v && (e.line == p.lines[i] || e.line == "换乘")) {
             p.directions.push_back(e.direction);
+            found = true;
             break;
           }
         }
+        if (!found) p.directions.push_back("");
       }
       // 用优先队列中保存的 cost 覆盖（与邻接表重算结果应一致；这里取 PQ
       // 状态更稳）
