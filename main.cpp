@@ -11,7 +11,8 @@
 //         .\metro.exe --demo
 //
 //    3) 传统多文件编译 (如不需要 unity build):
-//         g++ -std=c++11 -O2 -DNO_UNITY_BUILD -o metro.exe main.cpp station.cpp graph.cpp pathfinder.cpp menu.cpp
+//         g++ -std=c++11 -O2 -DNO_UNITY_BUILD -o metro.exe main.cpp station.cpp
+//         graph.cpp pathfinder.cpp menu.cpp
 //         .\metro.exe
 // =============================================================
 #include "graph.h"
@@ -27,10 +28,10 @@
 #endif
 
 // 数据文件路径（按 §3.5 项目结构放在 data/ 子目录下）
-const std::string STATION_CSV  = "data/Station.csv";
+const std::string STATION_CSV = "data/Station.csv";
 const std::string STATION_INIT = "data/Station_init.csv";
-const std::string EDGE_CSV     = "data/Edge.csv";
-const std::string UPDATE_CSV   = "data/update_station_status.csv";
+const std::string EDGE_CSV = "data/Edge.csv";
+const std::string UPDATE_CSV = "data/update_station_status.csv";
 
 // =====================================================================
 //   一键演示模式：跑一组预设测试用例，覆盖核心功能
@@ -65,30 +66,40 @@ static int runDemo() {
   PathFinder pf(graph, sm);
 
   // ---- 工具：按 name 拿第一个匹配 id（同名换乘站优先 1 号线） ----
-  auto pickId = [&](const std::string& name, const std::string& preferLine = "") {
+  auto pickId = [&](const std::string &name,
+                    const std::string &preferLine = "") {
     auto sts = sm.getStationsByName(name);
-    if (sts.empty()) return -1;
+    if (sts.empty())
+      return -1;
     if (!preferLine.empty()) {
-      for (auto& s : sts) if (s.line == preferLine) return s.id;
+      for (auto &s : sts)
+        if (s.line == preferLine)
+          return s.id;
     }
     return sts[0].id;
   };
 
-  // ---- 测试用例集合 ----
-  struct Case { std::string title; std::string s; std::string sLine; std::string e; std::string eLine; };
+  // ---- 测试用例集合（按运行效果图 §3.8.2）----
+  struct Case {
+    std::string title;
+    std::string s;
+    std::string sLine;
+    std::string e;
+    std::string eLine;
+  };
   std::vector<Case> cases = {
-    {"【T1】莘庄 -> 人民广场 (1号线 直达)",
-     "莘庄", "1号线", "人民广场", "1号线"},
-    {"【T2】莘庄 -> 陆家嘴 (1→2 在 人民广场)",
-     "莘庄", "1号线", "陆家嘴", "2号线"},
-    {"【T3】上海火车站 -> 浦东国际机场 (跨多线)",
-     "上海火车站", "1号线", "浦东国际机场", "2号线"},
-    {"【T4】徐家汇 -> 世纪公园 (1→2 在 人民广场)",
-     "徐家汇", "1号线", "世纪公园", "2号线"},
+      {"【T1】莘庄 -> 人民广场 (1号线 直达)", "莘庄", "1号线", "人民广场",
+       "1号线"},
+      {"【T2】莘庄 -> 陆家嘴 (1→2 在 人民广场 换乘)", "莘庄", "1号线", "陆家嘴",
+       "2号线"},
+      {"【T3】徐家汇 -> 世纪公园 (1→2 跨多线)", "徐家汇", "1号线", "世纪公园",
+       "2号线"},
+      {"【T4】人民广场 -> 龙阳路 (2→7 在 龙阳路)", "人民广场", "2号线",
+       "龙阳路", "7号线"},
   };
 
   for (size_t i = 0; i < cases.size(); ++i) {
-    auto& c = cases[i];
+    auto &c = cases[i];
     int sId = pickId(c.s, c.sLine);
     int eId = pickId(c.e, c.eLine);
     if (sId < 0 || eId < 0) {
@@ -116,7 +127,7 @@ static int runDemo() {
   sm.setStationStatus("人民广场", "1号线", "关闭");
   Path p2 = pf.findBestByTime(sId, eId);
   std::cout << p2.toPrettyString(sm) << "\n\n";
-  sm.restoreInitialStatus();  // 恢复
+  sm.restoreInitialStatus(); // 恢复
 
   // ---- 受影响区域分析 ----
   std::cout << "===== 【受影响分析】如果关闭 世纪公园 (2号线) =====\n";
@@ -136,7 +147,7 @@ static int runDemo() {
 // =====================================================================
 //   主入口
 // =====================================================================
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
 #ifdef _WIN32
   SetConsoleOutputCP(CP_UTF8);
   SetConsoleCP(CP_UTF8);
@@ -145,13 +156,13 @@ int main(int argc, char** argv) {
   // ---- 命令行参数解析 ----
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
-    if (a == "--demo" || a == "-d")   return runDemo();
+    if (a == "--demo" || a == "-d")
+      return runDemo();
     if (a == "--help" || a == "-h" || a == "/?") {
-      std::cout
-        << "用法:\n"
-        << "  metro.exe              进入交互式菜单\n"
-        << "  metro.exe --demo       跑预设测试用例 (一键演示)\n"
-        << "  metro.exe --help       显示本帮助\n";
+      std::cout << "用法:\n"
+                << "  metro.exe              进入交互式菜单\n"
+                << "  metro.exe --demo       跑预设测试用例 (一键演示)\n"
+                << "  metro.exe --help       显示本帮助\n";
       return 0;
     }
   }
@@ -198,8 +209,8 @@ int main(int argc, char** argv) {
 //   传统多文件编译请加 -DNO_UNITY_BUILD（见本文件顶部说明）。
 // =====================================================================
 #ifndef NO_UNITY_BUILD
-  #include "station.cpp"
-  #include "graph.cpp"
-  #include "pathfinder.cpp"
-  #include "menu.cpp"
+#include "graph.cpp"
+#include "menu.cpp"
+#include "pathfinder.cpp"
+#include "station.cpp"
 #endif
