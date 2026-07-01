@@ -235,10 +235,12 @@ void Menu::stationMenu() {
 void Menu::batchUpdateFromCSV() {
   clearScreen();
   std::cout << "--- 批量更新站点状态 ---\n";
-  std::cout << "  [提示] 支持两种格式：id,status 或 name,line,status\n";
-  std::string input =
-      readLine("  请输入 CSV 路径（直接回车使用 "
-               "data/update_station_status.csv，也可直接输入一条记录）: ");
+  std::cout << "  [提示] 可直接输入单条记录（id,状态 或 站名,线路,状态），\n"
+            << "         也可输入 CSV 文件路径进行批量更新。\n";
+  std::cout
+      << "  [提示] 文件格式：每行为 id,状态（2列）或 站名,线路,状态（3列）。\n";
+  std::string input = readLine(
+      "  请输入记录/CSV路径（直接回车 = data/update_station_status.csv）: ");
   if (input.empty())
     input = "data/update_station_status.csv";
 
@@ -278,6 +280,20 @@ void Menu::batchUpdateFromCSV() {
     return;
   }
 
+  // 路径预检：区分"文件不存在"和"路径是目录"
+  {
+    std::ifstream precheck(StationManager::toNativePath(input));
+    if (!precheck.is_open()) {
+      std::cout << "  [失败] 文件不存在或无法访问: " << input << "\n";
+      return;
+    }
+    if (precheck.peek() == std::ifstream::traits_type::eof()) {
+      std::cout << "  [失败] 路径是目录或文件为空: " << input << "\n";
+      return;
+    }
+    precheck.close();
+  }
+
   int nUpdated = stationManager_.batchUpdateFromCSV(input);
   if (nUpdated >= 0) {
     std::cout << "  [完成] 批量更新已执行（" << nUpdated << " 条）。\n";
@@ -286,7 +302,7 @@ void Menu::batchUpdateFromCSV() {
         std::cout << "  [失败] 目标文件不存在或无法写入: data/Station.csv。\n";
     }
   } else
-    std::cout << "  [失败] 更新文件不存在或无法打开。\n";
+    std::cout << "  [失败] 更新文件格式错误。\n";
 }
 
 // 手工更新站点状态（支持循环操作 + 实时落盘）

@@ -60,6 +60,8 @@ public:
 
   static std::vector<std::string> parseCSVLine(const std::string &line);
   static std::string trim(const std::string &s);
+  // 将 UTF-8 路径转为系统原生编码（Windows 下转 ANSI，解决中文路径问题）
+  static std::string toNativePath(const std::string &utf8Path);
 
   const std::vector<Station> &allStations() const { return stations_; }
   bool isClosed(int id) const;

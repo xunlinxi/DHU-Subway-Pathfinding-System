@@ -29,7 +29,7 @@ void addDirectedEdge(std::vector<std::vector<Edge>> &adjacencyList, int from,
 
 // 从 CSV 加载线路边
 bool Graph::loadEdgesFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
+  std::ifstream fin(StationManager::toNativePath(csvPath));
   if (!fin.is_open()) {
     std::cerr << "[Graph] 无法打开文件: " << csvPath << std::endl;
     return false;

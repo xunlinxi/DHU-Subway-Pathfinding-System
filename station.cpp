@@ -8,6 +8,10 @@
 #include <ostream>
 #include <sstream>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 // 重建站点索引（按 id 和 name）
 namespace {
 void rebuildIndexes(
@@ -39,6 +43,32 @@ std::string StationManager::trim(const std::string &s) {
   return s.substr(b, e - b);
 }
 
+// 将 UTF-8 路径转为系统原生编码（Windows: UTF-8→UTF-16→ANSI）
+std::string StationManager::toNativePath(const std::string &utf8Path) {
+#ifdef _WIN32
+  if (utf8Path.empty())
+    return utf8Path;
+  int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8Path.c_str(), -1, nullptr, 0);
+  if (wlen <= 0)
+    return utf8Path;
+  std::wstring wide(wlen, L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, utf8Path.c_str(), -1, &wide[0], wlen);
+  int alen = WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, nullptr, 0,
+                                 nullptr, nullptr);
+  if (alen <= 0)
+    return utf8Path;
+  std::string ansi(alen, '\0');
+  WideCharToMultiByte(CP_ACP, 0, wide.c_str(), -1, &ansi[0], alen, nullptr,
+                      nullptr);
+  // 去掉末尾 '\0'
+  if (!ansi.empty() && ansi.back() == '\0')
+    ansi.pop_back();
+  return ansi;
+#else
+  return utf8Path;
+#endif
+}
+
 // 解析一行 CSV，处理引号与逗号
 std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
   std::vector<std::string> fields;
@@ -61,7 +91,7 @@ std::vector<std::string> StationManager::parseCSVLine(const std::string &line) {
 
 // 从 CSV 加载站点数据
 bool StationManager::loadFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
+  std::ifstream fin(toNativePath(csvPath));
   if (!fin.is_open()) {
     std::cerr << "[Station] 无法打开文件: " << csvPath << std::endl;
     return false;
@@ -107,7 +137,7 @@ bool StationManager::loadFromCSV(const std::string &csvPath) {
 
 // 加载初始状态快照用于一键恢复
 bool StationManager::loadInitFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
+  std::ifstream fin(toNativePath(csvPath));
   if (!fin.is_open()) {
     std::cerr << "[Station] 无法打开初始化文件: " << csvPath << std::endl;
     return false;
@@ -147,7 +177,19 @@ bool StationManager::loadInitFromCSV(const std::string &csvPath) {
 
 // 批量更新站点状态，返回成功更新的数量
 int StationManager::batchUpdateFromCSV(const std::string &csvPath) {
-  std::ifstream fin(csvPath);
+  // 路径预检
+  std::ifstream precheck(toNativePath(csvPath));
+  if (!precheck.is_open()) {
+    std::cerr << "[Station] 文件不存在或无法访问: " << csvPath << std::endl;
+    return -1;
+  }
+  if (precheck.peek() == std::ifstream::traits_type::eof()) {
+    std::cerr << "[Station] 路径是目录或文件为空: " << csvPath << std::endl;
+    return -1;
+  }
+  precheck.close();
+
+  std::ifstream fin(toNativePath(csvPath));
   if (!fin.is_open()) {
     std::cerr << "[Station] 无法打开批量更新文件: " << csvPath << std::endl;
     return -1;
@@ -373,7 +415,7 @@ bool StationManager::restoreInitialStatusSilent() {
 
 // 保存当前站点状态到 CSV（写入 UTF-8 BOM 防乱码）
 bool StationManager::saveCurrentToCSV(const std::string &csvPath) const {
-  std::ofstream fout(csvPath, std::ios::binary);
+  std::ofstream fout(toNativePath(csvPath), std::ios::binary);
   if (!fout.is_open()) {
     std::cerr << "[Station] 无法写入文件: " << csvPath << std::endl;
     return false;
