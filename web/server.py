@@ -27,13 +27,25 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 # ============= 路径配置 =============
-# server.py 在 web/ 下, 项目根 = 父目录 (web 的上一级)
-BASE_DIR   = Path(__file__).parent.parent.resolve()        # 项目根
-WEB_DIR    = Path(__file__).parent.resolve()               # web/
-EXE_NAME   = "main_web.exe" if sys.platform == "win32" else "main_web"
-MAIN_WEB   = str(WEB_DIR / EXE_NAME)                       # web/main_web.exe
-INDEX_HTML = str(WEB_DIR / "index.html")                   # web/index.html
-DATA_DIR   = BASE_DIR / "data"                             # 项目根/data/
+# 支持三种运行模式:
+#   1. 开发环境: python web/server.py  (main_web.exe 在 web/ 下)
+#   2. 发布环境: server.exe (PyInstaller) 在 dist/ 根, main_web.exe 同行
+#   3. 分发环境: python start_web.py (dist 目录下)
+FROZEN = getattr(sys, "frozen", False)
+if FROZEN:
+    # PyInstaller 打包: exe 在 dist/ 根, data/ 同行
+    EXE_DIR   = Path(sys.executable).parent.resolve()
+    BASE_DIR  = EXE_DIR                                   # dist/
+    EXE_NAME  = "main_web.exe" if sys.platform == "win32" else "main_web"
+    MAIN_WEB  = str(EXE_DIR / EXE_NAME)                    # dist/main_web.exe
+    INDEX_HTML = str(Path(sys._MEIPASS) / "index.html")    # PyInstaller 内置
+else:
+    BASE_DIR  = Path(__file__).parent.parent.resolve()     # 项目根
+    WEB_DIR   = Path(__file__).parent.resolve()             # web/
+    EXE_NAME  = "main_web.exe" if sys.platform == "win32" else "main_web"
+    MAIN_WEB  = str(WEB_DIR / EXE_NAME)                    # web/main_web.exe
+    INDEX_HTML = str(WEB_DIR / "index.html")                # web/index.html
+DATA_DIR = BASE_DIR / "data"                                # data/ 目录
 
 app = FastAPI(title="上海地铁路径规划 Web 服务", version="1.0.0")
 
@@ -223,7 +235,7 @@ def run_main_web(args: List[str], timeout: int = 30) -> Dict[str, Any]:
             timeout=timeout,
             encoding="utf-8",
             errors="replace",
-            cwd=str(BASE_DIR),  # 在项目根执行, 让 main_web 能找到 data/
+            cwd=None,  # exe 自行通过 getExeDir() 定位 data/，不依赖 CWD
         )
     except subprocess.TimeoutExpired:
         return {"ok": False, "message": f"C++ 子进程超时 ({timeout}s)"}

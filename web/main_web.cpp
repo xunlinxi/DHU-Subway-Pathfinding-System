@@ -1,9 +1,10 @@
 // main_web.cpp - Web 入口，接收命令行参数，输出结构化文本供 Python 解析
-#include "graph.h"
-#include "pathfinder.h"
-#include "station.h"
+#include "../graph.h"
+#include "../pathfinder.h"
+#include "../station.h"
 
 #include <cstdlib>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -11,11 +12,80 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <unistd.h>
 #endif
 
-static const std::string STATION_CSV = "data/Station.csv";
-static const std::string STATION_INIT = "data/Station_init.csv";
-static const std::string EDGE_CSV = "data/Edge.csv";
+// 获取 exe 所在目录，用于计算 data/ 等资源的绝对路径
+static std::string getExeDir() {
+#ifdef _WIN32
+  wchar_t buf[MAX_PATH];
+  DWORD len = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+  if (len == 0 || len >= MAX_PATH)
+    return "";
+  std::wstring ws(buf, len);
+  auto pos = ws.find_last_of(L"\\/");
+  if (pos != std::wstring::npos)
+    ws = ws.substr(0, pos);
+  int u8len = WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, nullptr, 0,
+                                  nullptr, nullptr);
+  if (u8len <= 0)
+    return "";
+  std::string u8(u8len, '\0');
+  WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), -1, &u8[0], u8len, nullptr,
+                      nullptr);
+  if (!u8.empty() && u8.back() == '\0')
+    u8.pop_back();
+  return u8;
+#else
+  char buf[4096];
+  ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (len <= 0)
+    return "";
+  buf[len] = '\0';
+  std::string path(buf);
+  auto pos = path.find_last_of('/');
+  if (pos != std::string::npos)
+    path = path.substr(0, pos);
+  return path;
+#endif
+}
+
+// 将相对路径转为 exe 目录下的绝对路径
+// 优先尝试上级 data/（开发结构：exe 在 web/ 下），否则尝试同级 data/（dist
+// 结构）
+static std::string resolveDataPath(const std::string &relative) {
+  std::string dir = getExeDir();
+  if (dir.empty())
+    return relative;
+
+  auto fileExists = [](const std::string &p) {
+    std::ifstream test(StationManager::toNativePath(p));
+    bool ok = test.is_open();
+    if (ok)
+      test.close();
+    return ok;
+  };
+
+  // 方案1: 上级 data/（开发结构：exe 在 web/ 下）
+  auto pos = dir.find_last_of("\\/");
+  if (pos != std::string::npos) {
+    std::string path1 = dir.substr(0, pos) + "/" + relative;
+    if (fileExists(path1))
+      return path1;
+  }
+  // 方案2: 同级 data/（dist 发布结构）
+  std::string path2 = dir + "/" + relative;
+  if (fileExists(path2))
+    return path2;
+  return path2;
+}
+
+static std::string stationCsv() { return resolveDataPath("data/Station.csv"); }
+static std::string stationInit() {
+  return resolveDataPath("data/Station_init.csv");
+}
+static std::string edgeCsv() { return resolveDataPath("data/Edge.csv"); }
 
 // Windows argv 按 ANSI 代码页解码，转 UTF-8 避免中文乱码
 static std::string ansiToUtf8(const char *ansi) {
@@ -191,7 +261,7 @@ static int cmdToggle(StationManager &sm, const std::string &name,
     emitErr("更新失败, 站点不存在: " + name + " (" + line + ")");
     return 0;
   }
-  sm.saveCurrentToCSV(STATION_CSV);
+  sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "NAME=" << name << "\n"
             << "LINE=" << line << "\n"
@@ -253,7 +323,7 @@ static int cmdListClosed(const StationManager &sm) {
 // 恢复初始状态并落盘
 static int cmdReset(StationManager &sm) {
   sm.restoreInitialStatusSilent();
-  sm.saveCurrentToCSV(STATION_CSV);
+  sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "MESSAGE=已恢复初始状态并保存\n";
   return 0;
@@ -263,7 +333,7 @@ static int cmdReset(StationManager &sm) {
 static int cmdCloseTransfer(StationManager &sm, const std::string &name) {
   int n = sm.closeTransferStationSilent(name);
   if (n > 0)
-    sm.saveCurrentToCSV(STATION_CSV);
+    sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "NAME=" << name << "\n";
   std::cout << "COUNT=" << n << "\n";
@@ -284,7 +354,7 @@ static int cmdLineToggle(StationManager &sm, const std::string &line,
     return 0;
   }
   if (n > 0)
-    sm.saveCurrentToCSV(STATION_CSV);
+    sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "LINE=" << line << "\n";
   std::cout << "ACTION=" << action << "\n";
@@ -307,7 +377,7 @@ static int cmdNetworkToggle(StationManager &sm, const std::string &action) {
     return 0;
   }
   if (n > 0)
-    sm.saveCurrentToCSV(STATION_CSV);
+    sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "ACTION=" << action << "\n";
   std::cout << "COUNT=" << n << "\n";
@@ -392,7 +462,7 @@ static int cmdBatchUpdate(StationManager &sm, const std::string &path) {
     return 0;
   }
   if (n > 0)
-    sm.saveCurrentToCSV(STATION_CSV);
+    sm.saveCurrentToCSV(stationCsv());
   emitOK();
   std::cout << "PATH=" << p << "\n";
   std::cout << "COUNT=" << n << "\n";
@@ -432,6 +502,10 @@ int main(int argc, char **argv) {
 
   if (argc < 2) {
     printUsage();
+#ifdef _WIN32
+    std::cout << "\n按回车键退出..." << std::endl;
+    std::cin.get();
+#endif
     return 1;
   }
   std::vector<std::string> args;
@@ -447,15 +521,15 @@ int main(int argc, char **argv) {
   }
 
   StationManager sm;
-  if (!sm.loadFromCSV(STATION_CSV)) {
-    emitErr("加载 Station.csv 失败: " + STATION_CSV);
+  if (!sm.loadFromCSV(stationCsv())) {
+    emitErr("加载 Station.csv 失败: " + stationCsv());
     return 0;
   }
-  sm.loadInitFromCSV(STATION_INIT);
+  sm.loadInitFromCSV(stationInit());
 
   Graph graph(sm);
-  if (!graph.build(EDGE_CSV)) {
-    emitErr("构建图失败: " + EDGE_CSV);
+  if (!graph.build(edgeCsv())) {
+    emitErr("构建图失败: " + edgeCsv());
     return 0;
   }
   PathFinder pf(graph, sm);
@@ -519,7 +593,7 @@ int main(int argc, char **argv) {
 
 // Unity Build
 #ifndef NO_UNITY_BUILD
-#include "graph.cpp"
-#include "pathfinder.cpp"
-#include "station.cpp"
+#include "../graph.cpp"
+#include "../pathfinder.cpp"
+#include "../station.cpp"
 #endif
